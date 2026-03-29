@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Usta Çağır",
+    "slug": "usta-cagir-user",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "az.ustacagir.user"
+    },
+    "android": {
+      "package": "az.ustacagir.user",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f97316"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      "expo-location",
+      "expo-image-picker",
+      ["expo-notifications", { "icon": "./assets/icon.png", "color": "#f97316" }]
+    ],
+    "extra": {
+      "apiUrl": "https://RAILWAY_URL/api",
+      "wsUrl": "https://RAILWAY_URL"
+    }
+  }
+}
