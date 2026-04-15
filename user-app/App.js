@@ -1,14 +1,12 @@
-import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import Navigation from './src/navigation';
 
-export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(null);
-
-  useEffect(() => {
-    AsyncStorage.getItem('token').then(t => setIsLoggedIn(!!t));
-  }, []);
+function AppContent() {
+  const { isLoggedIn } = useAuth();
 
   if (isLoggedIn === null) return null;
 
@@ -19,3 +17,19 @@ export default function App() {
     </>
   );
 }
+
+export default function App() {
+  return (
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});

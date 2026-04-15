@@ -36,15 +36,25 @@ async function qeydiyyat(req, res) {
 }
 
 // POST /api/usta/giris
+// Body: { telefon?, email?, sifre }  — biri mütləq göndərilməlidir
 async function giris(req, res) {
   try {
-    const { telefon, sifre } = req.body;
+    const { telefon, email, sifre } = req.body;
+    const { Op } = require('sequelize');
 
-    const usta = await Usta.findOne({ where: { telefon } });
-    if (!usta) return res.status(400).json({ xeta: 'Telefon və ya şifrə yanlışdır' });
+    let usta = null;
+    if (telefon) {
+      usta = await Usta.findOne({
+        where: { telefon: { [Op.in]: [telefon, telefon.replace(/^\+/, ''), '+' + telefon.replace(/^\+/, '')] } },
+      });
+    } else if (email) {
+      usta = await Usta.findOne({ where: { email } });
+    }
+
+    if (!usta) return res.status(400).json({ xeta: 'Məlumatlar yanlışdır' });
 
     const dogru = await bcrypt.compare(sifre, usta.sifre_hash);
-    if (!dogru) return res.status(400).json({ xeta: 'Telefon və ya şifrə yanlışdır' });
+    if (!dogru) return res.status(400).json({ xeta: 'Məlumatlar yanlışdır' });
 
     if (!usta.aktiv) return res.status(403).json({ xeta: 'Hesabınız bloklanıb' });
 
@@ -116,4 +126,16 @@ async function profil(req, res) {
   }
 }
 
-module.exports = { qeydiyyat, giris, onlaynDeyis, konumYenile, fcmTokenYenile, profil };
+// PUT /api/usta/profil-foto  — base64 şəkil yüklə
+async function profilFotoYenile(req, res) {
+  try {
+    const { foto } = req.body; // base64 data URI və ya URL
+    if (!foto) return res.status(400).json({ xeta: 'Foto göndərilməyib' });
+    await Usta.update({ foto }, { where: { id: req.usta.id } });
+    res.json({ ok: true, foto });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+module.exports = { qeydiyyat, giris, onlaynDeyis, konumYenile, fcmTokenYenile, profil, profilFotoYenile };

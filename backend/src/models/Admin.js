@@ -10,6 +10,8 @@ const Admin = sequelize.define('Admin', {
   ad: { type: DataTypes.STRING(100), allowNull: false },
   telefon: { type: DataTypes.STRING(20), allowNull: false, unique: true },
   sifre_hash: { type: DataTypes.STRING, allowNull: false },
+  aktiv: { type: DataTypes.BOOLEAN, defaultValue: true },
+  odeme_karti: { type: DataTypes.STRING(30), allowNull: true },
 }, {
   tableName: 'adminler',
   timestamps: true,

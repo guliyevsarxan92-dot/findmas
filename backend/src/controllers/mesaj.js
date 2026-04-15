@@ -1,4 +1,5 @@
-const { Mesaj, Sifaris } = require('../models');
+const { Mesaj, Sifaris, Usta, User } = require('../models');
+const { mesajBildiris } = require('../services/fcm');
 
 // GET /api/mesaj/:sifaris_id
 async function mesajlar(req, res) {
@@ -48,11 +49,18 @@ async function mesajGonder(req, res) {
       fayl_url,
     });
 
-    // WebSocket ilə göndər
+    // WebSocket + FCM bildirişi
     const io = req.app.get('io');
-    if (io) {
-      const alici_id = nov === 'istifadeci' ? `usta_${sifaris.usta_id}` : `istifadeci_${sifaris.istifadeci_id}`;
-      io.to(alici_id).emit('yeni_mesaj', { sifaris_id, mesaj });
+    if (nov === 'istifadeci') {
+      // Ustaya göndər
+      if (io) io.to(`usta_${sifaris.usta_id}`).emit('yeni_mesaj', { sifaris_id, mesaj });
+      const usta = await Usta.findByPk(sifaris.usta_id, { attributes: ['fcm_token'] });
+      if (usta?.fcm_token) mesajBildiris(usta, metn || '📎 Fayl').catch(() => {});
+    } else {
+      // İstifadəçiyə göndər
+      if (io) io.to(`istifadeci_${sifaris.istifadeci_id}`).emit('yeni_mesaj', { sifaris_id, mesaj });
+      const user = await User.findByPk(sifaris.istifadeci_id, { attributes: ['fcm_token'] });
+      if (user?.fcm_token) mesajBildiris(user, metn || '📎 Fayl').catch(() => {});
     }
 
     res.status(201).json(mesaj);

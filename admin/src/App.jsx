@@ -4,6 +4,8 @@ import Giris from './pages/Giris'
 import Statistika from './pages/Statistika'
 import Ustalar from './pages/Ustalar'
 import Sifarisler from './pages/Sifarisler'
+import Balanslar from './pages/Balanslar'
+import Xidmetler from './pages/Xidmetler'
 
 function PrivateLayout({ children }) {
   const token = localStorage.getItem('admin_token')
@@ -24,6 +26,8 @@ export default function App() {
         <Route path="/" element={<PrivateLayout><Statistika /></PrivateLayout>} />
         <Route path="/ustalar" element={<PrivateLayout><Ustalar /></PrivateLayout>} />
         <Route path="/sifarisler" element={<PrivateLayout><Sifarisler /></PrivateLayout>} />
+        <Route path="/balanslar" element={<PrivateLayout><Balanslar /></PrivateLayout>} />
+        <Route path="/xidmetler" element={<PrivateLayout><Xidmetler /></PrivateLayout>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

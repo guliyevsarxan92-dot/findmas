@@ -19,6 +19,7 @@
     "android": {
       "package": "az.ustacagir.user",
       "versionCode": 1,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f97316"
@@ -35,11 +36,18 @@
     "plugins": [
       "expo-location",
       "expo-image-picker",
-      ["expo-notifications", { "icon": "./assets/icon.png", "color": "#f97316" }]
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#f97316"
+        }
+      ],
+      "expo-font"
     ],
     "extra": {
-      "apiUrl": "https://RAILWAY_URL/api",
-      "wsUrl": "https://RAILWAY_URL"
+      "apiUrl": "http://192.168.52.196:3000/api",
+      "wsUrl": "http://192.168.52.196:3000"
     }
   }
 }

@@ -29,6 +29,16 @@ async function ustaTesdiqlə(req, res) {
     if (!usta) return res.status(404).json({ xeta: 'Tapılmadı' });
 
     await usta.update({ tesdiqlendi: true, tesdiqleme_tarixi: new Date() });
+
+    // Real-vaxtda usta-ya bildiriş göndər
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`usta_${usta.id}`).emit('hesab_tesdiqlendi', {
+        tesdiqlendi: true,
+        mesaj: 'Hesabınız admin tərəfindən təsdiqləndi!',
+      });
+    }
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ xeta: err.message });

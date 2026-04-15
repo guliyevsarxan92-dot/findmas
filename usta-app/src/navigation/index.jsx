@@ -1,7 +1,8 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import C from '../utils/colors';
 
 import GirisScreen from '../screens/GirisScreen';
@@ -12,32 +13,61 @@ import AktivSifarisScreen from '../screens/AktivSifarisScreen';
 import ChatScreen from '../screens/ChatScreen';
 import QazancScreen from '../screens/QazancScreen';
 import ProfilScreen from '../screens/ProfilScreen';
+import BalansArtirScreen from '../screens/BalansArtirScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const TAB_BAR = {
+    tabBarStyle: {
+      backgroundColor: C.white,
+      borderTopColor: C.border,
+      borderTopWidth: 1,
+      height: 56 + insets.bottom,
+      paddingBottom: insets.bottom || 8,
+      paddingTop: 8,
+      shadowColor: '#000',
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+      elevation: 8,
+    },
+    tabBarActiveTintColor: C.primary,
+    tabBarInactiveTintColor: C.textMuted,
+    headerShown: false,
+  };
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerStyle: { backgroundColor: C.white, elevation: 0, shadowOpacity: 0 },
-        headerTitleStyle: { fontWeight: '700', fontSize: 18 },
-        tabBarStyle: { borderTopColor: C.border, paddingBottom: 4 },
-        tabBarActiveTintColor: C.primary,
-        tabBarInactiveTintColor: C.textSoft,
-      }}
-    >
+    <Tab.Navigator screenOptions={TAB_BAR}>
       <Tab.Screen
-        name="Ana" component={AnaScreen}
-        options={{ title: 'Usta Paneli', tabBarLabel: 'Ana', tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>🏠</Text> }}
+        name="Ana"
+        component={AnaScreen}
+        options={{
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="map-outline" size={size} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
-        name="Qazanc" component={QazancScreen}
-        options={{ title: 'Qazancım', tabBarLabel: 'Qazanc', tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>💰</Text> }}
+        name="Qazanc"
+        component={QazancScreen}
+        options={{
+          tabBarLabel: 'Orders',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list-outline" size={size} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
-        name="Profil" component={ProfilScreen}
-        options={{ title: 'Profil', tabBarLabel: 'Profil', tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>👤</Text> }}
+        name="Profil"
+        component={ProfilScreen}
+        options={{
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
       />
     </Tab.Navigator>
   );
@@ -54,17 +84,57 @@ function AuthStack() {
 
 export default function Navigation({ isLoggedIn }) {
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      theme={{
+        dark: false,
+        colors: {
+          primary: C.primary,
+          background: C.softBg,
+          card: C.white,
+          text: C.dark,
+          border: C.border,
+          notification: C.primary,
+        },
+        fonts: {
+          regular: { fontFamily: 'System', fontWeight: '400' },
+          medium:  { fontFamily: 'System', fontWeight: '500' },
+          bold:    { fontFamily: 'System', fontWeight: '700' },
+          heavy:   { fontFamily: 'System', fontWeight: '900' },
+        },
+      }}
+    >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isLoggedIn ? (
           <>
             <Stack.Screen name="Main" component={MainTabs} />
-            <Stack.Screen name="YeniSifaris" component={YeniSifarisScreen}
-              options={{ presentation: 'modal' }} />
-            <Stack.Screen name="AktivSifaris" component={AktivSifarisScreen}
-              options={{ headerShown: true, title: 'Aktiv sifariş', headerBackTitle: '' }} />
-            <Stack.Screen name="Chat" component={ChatScreen}
-              options={{ headerShown: true, title: 'Müştəri ilə çat', headerBackTitle: '' }} />
+            <Stack.Screen
+              name="YeniSifaris"
+              component={YeniSifarisScreen}
+              options={{ presentation: 'modal', headerShown: false }}
+            />
+            <Stack.Screen
+              name="AktivSifaris"
+              component={AktivSifarisScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="BalansArtir"
+              component={BalansArtirScreen}
+              options={{ headerShown: true, title: 'Balansı Artır', headerBackTitle: '', headerStyle: { backgroundColor: C.white }, headerTintColor: C.dark, headerTitleStyle: { fontWeight: '700' } }}
+            />
+            <Stack.Screen
+              name="Chat"
+              component={ChatScreen}
+              options={{
+                headerShown: true,
+                title: 'Müştəri ilə çat',
+                headerBackTitle: '',
+                headerStyle: { backgroundColor: C.white },
+                headerTintColor: C.dark,
+                headerTitleStyle: { fontWeight: '700', color: C.dark },
+                headerShadowVisible: true,
+              }}
+            />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthStack} />

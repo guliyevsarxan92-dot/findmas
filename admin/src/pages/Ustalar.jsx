@@ -28,7 +28,7 @@ export default function Ustalar() {
   useEffect(() => { yukle(filtr) }, [filtr])
 
   async function tesdiqlə(id) {
-    await api.put(`/admin/usta/${id}/tesdiqlə`)
+    await api.put(`/admin/usta/${id}/tesdiql`)
     yukle(filtr)
   }
 
@@ -66,6 +66,7 @@ export default function Ustalar() {
                 <th>Telefon</th>
                 <th>Kateqoriya</th>
                 <th>Reytinq</th>
+                <th>Balans</th>
                 <th>Status</th>
                 <th>Əməliyyat</th>
               </tr>
@@ -91,6 +92,9 @@ export default function Ustalar() {
                   <td>{u.telefon}</td>
                   <td style={{ textTransform: 'capitalize' }}>{u.kateqoriya}</td>
                   <td>⭐ {u.orta_reytinq || '—'} ({u.tamamlanan_sifaris})</td>
+                  <td style={{ fontWeight: 600, color: parseFloat(u.balans) < 0 ? '#ef4444' : '#16a34a' }}>
+                    {parseFloat(u.balans || 0).toFixed(2)} ₼
+                  </td>
                   <td>{STATUS_BADGE[u.tesdiqlendi]}</td>
                   <td style={{ display: 'flex', gap: 8 }}>
                     {!u.tesdiqlendi && (

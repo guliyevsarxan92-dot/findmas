@@ -1,21 +1,47 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Linking,
+  Dimensions,
+  Vibration,
+} from 'react-native';
+import MapView, { Marker, Polyline } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { WS_URL } from '../services/api';
 import C from '../utils/colors';
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const ADDIMLAR = [
-  { status: 'qebul_edildi', metn: 'Usta qəbul etdi', ikon: '✅' },
-  { status: 'yolda', metn: 'Usta yolda', ikon: '🚗' },
-  { status: 'baslandi', metn: 'İş başladı', ikon: '🔧' },
-  { status: 'tamamlandi', metn: 'İş tamamlandı', ikon: '🎉' },
-];
+const BAKU = {
+  latitude: 40.4093,
+  longitude: 49.8671,
+  latitudeDelta: 0.05,
+  longitudeDelta: 0.05,
+};
+
+// Returns "HH:MM" for now + minutesAhead minutes
+function etaStr(minutesAhead = 10) {
+  const d = new Date(Date.now() + minutesAhead * 60 * 1000);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+// Returns initials string from ad + soyad
+function initials(ad, soyad) {
+  return `${(ad || '')[0] || ''}${(soyad || '')[0] || ''}`.toUpperCase();
+}
 
 export default function AktivSifarisScreen({ navigation }) {
   const [sifaris, setSifaris] = useState(null);
+  const [userLoc, setUserLoc] = useState(null);
+  const [ustaLoc, setUstaLoc] = useState(null);
   const socketRef = useRef(null);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     yukle();
@@ -27,6 +53,12 @@ export default function AktivSifarisScreen({ navigation }) {
     try {
       const { data } = await api.get('/sifaris/aktiv');
       setSifaris(data);
+      if (data?.unvan_lat && data?.unvan_lng) {
+        setUserLoc({ latitude: parseFloat(data.unvan_lat), longitude: parseFloat(data.unvan_lng) });
+      }
+      if (data?.usta?.lat && data?.usta?.lng) {
+        setUstaLoc({ latitude: parseFloat(data.usta.lat), longitude: parseFloat(data.usta.lng) });
+      }
     } catch {}
   }
 
@@ -35,123 +67,408 @@ export default function AktivSifarisScreen({ navigation }) {
     const socket = io(WS_URL, { auth: { token } });
     socketRef.current = socket;
 
-    socket.on('sifaris_status', ({ status }) => {
-      setSifaris(prev => prev ? { ...prev, status } : prev);
+    socket.on('sifaris_status', ({ status, usta }) => {
+      setSifaris(prev => {
+        if (!prev) return prev;
+        return { ...prev, status, ...(usta ? { usta } : {}) };
+      });
     });
 
-    socket.on('odenis_alindi', () => {
-      navigation.replace('OdenisUgurlu');
+    // Mesaj bildirişi
+    socket.on('yeni_mesaj', () => {
+      Vibration.vibrate(200);
+    });
+
+    // Real-vaxt usta konumu
+    socket.on('usta_konum', ({ lat, lng }) => {
+      const coord = { latitude: parseFloat(lat), longitude: parseFloat(lng) };
+      setUstaLoc(coord);
+      setSifaris(prev => prev ? { ...prev, usta: { ...prev.usta, lat, lng } } : prev);
     });
   }
 
-  function addimIndeksi(status) {
-    return ADDIMLAR.findIndex(a => a.status === status);
+  async function legvEt() {
+    if (!sifaris) return;
+    Alert.alert('Ləğv et', 'Sifarişi ləğv etmək istəyirsiniz?', [
+      {
+        text: 'Bəli',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.post(`/sifaris/${sifaris.id}/legv`);
+          } catch {}
+          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+        },
+      },
+      { text: 'Xeyr', style: 'cancel' },
+    ]);
   }
 
-  async function zengVur() {
-    if (sifaris?.usta?.telefon) {
-      Linking.openURL(`tel:${sifaris.usta.telefon}`);
-    }
-  }
-
-  function odenisEt() {
-    navigation.navigate('Odenish', { sifaris_id: sifaris.id });
-  }
-
+  // ---- Loading state ----
   if (!sifaris) {
-    return <View style={s.wrap}><Text style={{ color: C.textSoft }}>Yüklənir...</Text></View>;
+    return (
+      <View style={s.loadWrap}>
+        <MapView style={StyleSheet.absoluteFillObject} initialRegion={BAKU} />
+        <View style={s.overlay} />
+        <View style={s.bottomCard}>
+          <View style={s.handle} />
+          <Text style={{ color: C.textSoft, fontSize: 15, marginTop: 8 }}>Yüklənir...</Text>
+        </View>
+      </View>
+    );
   }
 
-  const cariIndeks = addimIndeksi(sifaris.status);
+  const { status, usta } = sifaris;
 
-  return (
-    <ScrollView style={s.wrap} showsVerticalScrollIndicator={false}>
-      {/* Usta kartı */}
-      {sifaris.usta && (
-        <View style={s.ustaKart}>
-          <View style={s.ustaAvatar}>
-            <Text style={{ fontSize: 28 }}>👷</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.ustaAd}>{sifaris.usta.ad} {sifaris.usta.soyad}</Text>
-            <Text style={s.ustaReytinq}>⭐ {sifaris.usta.orta_reytinq || 'Yeni'}</Text>
-          </View>
-          <TouchableOpacity style={s.zengBtn} onPress={zengVur}>
-            <Text style={{ fontSize: 20 }}>📞</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.chatBtn} onPress={() => navigation.navigate('Chat', { sifaris_id: sifaris.id })}>
-            <Text style={{ fontSize: 20 }}>💬</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+  // ---- Map region — real-vaxt ustaLoc state üstünlüklüdür ----
+  const liveUstaCoord = ustaLoc
+    || (usta?.lat && usta?.lng
+      ? { latitude: parseFloat(usta.lat), longitude: parseFloat(usta.lng) }
+      : null);
 
-      {/* Status addımları */}
-      <View style={s.addimlarWrap}>
-        {ADDIMLAR.map((a, i) => {
-          const kecdi = i <= cariIndeks;
-          const caridır = i === cariIndeks;
-          return (
-            <View key={a.status} style={s.addim}>
-              <View style={[s.addimDaire, kecdi && s.addimAktiv, caridır && s.addimCari]}>
-                <Text style={{ fontSize: 16 }}>{a.ikon}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.addimMetn, kecdi && { color: C.text, fontWeight: '600' }]}>{a.metn}</Text>
-              </View>
-              {i < ADDIMLAR.length - 1 && (
-                <View style={[s.xett, { backgroundColor: i < cariIndeks ? C.primary : C.border }]} />
+  const mapRegion = liveUstaCoord
+    ? { ...liveUstaCoord, latitudeDelta: 0.03, longitudeDelta: 0.03 }
+    : BAKU;
+
+  const routePoints =
+    liveUstaCoord && userLoc ? [liveUstaCoord, userLoc] : null;
+
+  // legacy alias
+  const ustaCoord = liveUstaCoord;
+
+  // ---- STATE A: qebul_edildi ----
+  if (status === 'qebul_edildi') {
+    return (
+      <View style={s.container}>
+        <MapView style={StyleSheet.absoluteFillObject} region={mapRegion}>
+          {ustaCoord && (
+            <Marker coordinate={ustaCoord} pinColor="#22C55E" title={usta?.ad} />
+          )}
+        </MapView>
+
+        <View style={s.bottomCard}>
+          <View style={s.handle} />
+
+          {/* Master row */}
+          <View style={s.masterRow}>
+            <View style={s.avatar}>
+              {usta?.ad ? (
+                <Text style={s.avatarInitials}>{initials(usta.ad, usta.soyad)}</Text>
+              ) : (
+                <Ionicons name="person" size={28} color={C.primary} />
               )}
             </View>
-          );
-        })}
-      </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.masterName}>{usta?.ad} {usta?.soyad}</Text>
+              <View style={s.ratingRow}>
+                <Ionicons name="star" size={13} color="#F59E0B" />
+                <Text style={s.ratingText}>
+                  {usta?.orta_reytinq || 'Yeni'}
+                  {usta?.mesafe ? ` · ${usta.mesafe} km` : ''}
+                </Text>
+              </View>
+            </View>
+          </View>
 
-      {/* Sifariş detalları */}
-      <View style={s.detalKart}>
-        <Text style={s.detalBasliq}>Sifariş detalı</Text>
-        <Text style={s.detalMetn}>{sifaris.problem_tesvirr}</Text>
-        <Text style={s.detalUnvan}>📍 {sifaris.unvan_metn}</Text>
-      </View>
+          {/* Action buttons */}
+          <View style={s.twoBtn}>
+            <TouchableOpacity
+              style={s.outlineBtn}
+              onPress={() => Linking.openURL(`tel:${usta?.telefon}`)}
+              activeOpacity={0.7}>
+              <Ionicons name="call-outline" size={18} color={C.textSoft} />
+              <Text style={s.outlineBtnText}>Zəng et</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={s.outlineBtn}
+              onPress={() => navigation.navigate('Chat', { sifaris_id: sifaris.id })}
+              activeOpacity={0.7}>
+              <Ionicons name="chatbubble-outline" size={18} color={C.textSoft} />
+              <Text style={s.outlineBtnText}>Mesaj yaz</Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* Ödəniş düyməsi */}
-      {sifaris.status === 'tamamlandi' && (
-        <TouchableOpacity style={s.odenisBtn} onPress={odenisEt}>
-          <Text style={s.odenisBtnMetn}>💳 Ödəniş et</Text>
+          {/* ETA */}
+          <Text style={s.etaLarge}>
+            {usta?.eta_deqiqe ? `${usta.eta_deqiqe} dəqiqəyə gələcək` : 'Yolda...'}
+          </Text>
+
+          <View style={s.separator} />
+
+          <TouchableOpacity onPress={legvEt} activeOpacity={0.7} style={s.legvTextBtn}>
+            <Text style={s.legvTextBtnLabel}>Ləğv et</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ---- STATE B: yolda | baslandi ----
+  if (status === 'yolda' || status === 'baslandi') {
+    const statusTitle = status === 'yolda' ? 'Usta yoldadır' : 'İş başladı';
+
+    return (
+      <View style={s.container}>
+        <MapView style={StyleSheet.absoluteFillObject} region={mapRegion}>
+          {ustaCoord && (
+            <Marker coordinate={ustaCoord} pinColor="#22C55E" title={usta?.ad} />
+          )}
+          {routePoints && (
+            <Polyline
+              coordinates={routePoints}
+              strokeColor="#22C55E"
+              strokeWidth={3}
+              lineDashPattern={[6, 4]}
+            />
+          )}
+        </MapView>
+
+        <View style={s.bottomCard}>
+          <View style={s.handle} />
+
+          <Text style={s.statusTitle}>{statusTitle}</Text>
+          {sifaris.unvan_metn ? (
+            <Text style={s.addressText} numberOfLines={2}>{sifaris.unvan_metn}</Text>
+          ) : null}
+
+          {/* ETA row */}
+          <View style={s.etaRow}>
+            <Text style={s.etaLabel}>ETA</Text>
+            <Text style={s.etaValue}>{etaStr(10)}</Text>
+          </View>
+
+          <View style={s.separator} />
+
+          {/* Action buttons */}
+          <View style={s.twoBtn}>
+            <TouchableOpacity
+              style={s.outlineBtn}
+              onPress={() => Linking.openURL(`tel:${usta?.telefon}`)}
+              activeOpacity={0.7}>
+              <Ionicons name="call-outline" size={18} color={C.textSoft} />
+              <Text style={s.outlineBtnText}>Əlaqə</Text>
+            </TouchableOpacity>
+
+            {status === 'yolda' && (
+              <TouchableOpacity
+                style={[s.outlineBtn, s.legvOutline]}
+                onPress={legvEt}
+                activeOpacity={0.7}>
+                <Ionicons name="close-outline" size={18} color={C.error} />
+                <Text style={[s.outlineBtnText, { color: C.error }]}>Ləğv et</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // ---- STATE C: tamamlandi ----
+  return (
+    <View style={s.container}>
+      <MapView style={StyleSheet.absoluteFillObject} initialRegion={BAKU} />
+
+      <View style={s.bottomCard}>
+        <View style={s.handle} />
+        <Text style={s.statusTitle}>Sifariş tamamlandı</Text>
+        <Text style={[s.addressText, { marginBottom: 20 }]}>
+          Ödənişi tamamlayın
+        </Text>
+        <TouchableOpacity
+          style={s.primaryBtn}
+          onPress={() => navigation.navigate('Odenish', { sifaris_id: sifaris.id })}
+          activeOpacity={0.8}>
+          <Ionicons name="card-outline" size={20} color={C.white} />
+          <Text style={s.primaryBtnText}>Ödəniş et</Text>
         </TouchableOpacity>
-      )}
-    </ScrollView>
+      </View>
+    </View>
   );
 }
 
+const CARD_RADIUS = 24;
+
 const s = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: C.bg },
-  ustaKart: {
-    margin: 16, backgroundColor: C.white, borderRadius: 16, padding: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+  container: {
+    flex: 1,
   },
-  ustaAvatar: {
-    width: 52, height: 52, borderRadius: 26, backgroundColor: C.primary + '20',
-    alignItems: 'center', justifyContent: 'center',
+  loadWrap: {
+    flex: 1,
   },
-  ustaAd: { fontSize: 16, fontWeight: '700', color: C.text },
-  ustaReytinq: { fontSize: 13, color: C.textSoft, marginTop: 2 },
-  zengBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.success + '20', alignItems: 'center', justifyContent: 'center' },
-  chatBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.primary + '20', alignItems: 'center', justifyContent: 'center' },
-  addimlarWrap: { margin: 16, backgroundColor: C.white, borderRadius: 16, padding: 20, gap: 20 },
-  addim: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  addimDaire: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' },
-  addimAktiv: { backgroundColor: C.primary + '20' },
-  addimCari: { backgroundColor: C.primary, shadowColor: C.primary, shadowOpacity: 0.4, shadowRadius: 8, elevation: 4 },
-  addimMetn: { fontSize: 15, color: C.textSoft },
-  xett: { position: 'absolute', left: 21, top: 44, width: 2, height: 20 },
-  detalKart: { margin: 16, marginTop: 0, backgroundColor: C.white, borderRadius: 16, padding: 16 },
-  detalBasliq: { fontSize: 14, fontWeight: '600', color: C.textSoft, marginBottom: 8 },
-  detalMetn: { fontSize: 15, color: C.text, lineHeight: 22 },
-  detalUnvan: { fontSize: 13, color: C.textSoft, marginTop: 8 },
-  odenisBtn: {
-    margin: 16, backgroundColor: C.primary, borderRadius: 16,
-    padding: 18, alignItems: 'center',
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.15)',
   },
-  odenisBtnMetn: { color: '#fff', fontSize: 17, fontWeight: '700' },
+
+  // --- Bottom sheet ---
+  bottomCard: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: C.white,
+    borderTopLeftRadius: CARD_RADIUS,
+    borderTopRightRadius: CARD_RADIUS,
+    paddingHorizontal: 24,
+    paddingBottom: 36,
+    paddingTop: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.14,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.border,
+    marginBottom: 20,
+  },
+
+  // --- Master row (State A) ---
+  masterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: C.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: C.primary,
+  },
+  masterName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: C.dark,
+    marginBottom: 4,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 13,
+    color: C.textSoft,
+    fontWeight: '500',
+  },
+
+  // --- ETA large text (State A) ---
+  etaLarge: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: C.dark,
+    textAlign: 'center',
+    marginVertical: 16,
+  },
+
+  // --- Status title + address (State B/C) ---
+  statusTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: C.dark,
+    marginBottom: 6,
+  },
+  addressText: {
+    fontSize: 13,
+    color: C.textSoft,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+
+  // --- ETA row (State B) ---
+  etaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  etaLabel: {
+    fontSize: 13,
+    color: C.textMuted,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  etaValue: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: C.dark,
+  },
+
+  // --- Separator ---
+  separator: {
+    height: 1,
+    backgroundColor: C.border,
+    marginBottom: 16,
+  },
+
+  // --- Two-button row ---
+  twoBtn: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  outlineBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    backgroundColor: C.white,
+  },
+  outlineBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.textSoft,
+  },
+  legvOutline: {
+    borderColor: '#FECACA',
+    backgroundColor: '#FFF5F5',
+  },
+
+  // --- "Ləğv et" text button (State A) ---
+  legvTextBtn: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  legvTextBtnLabel: {
+    fontSize: 14,
+    color: C.textMuted,
+    fontWeight: '500',
+  },
+
+  // --- Primary green button (State C) ---
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: C.primary,
+    borderRadius: 16,
+    paddingVertical: 16,
+    shadowColor: '#22C55E',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: C.white,
+  },
 });

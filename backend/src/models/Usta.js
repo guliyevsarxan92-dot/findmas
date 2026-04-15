@@ -109,6 +109,21 @@ const Usta = sequelize.define('Usta', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
+  // Son sifariş tamamlama tarixi (gözləmə bonusu üçün)
+  son_sifaris_tarixi: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  // Balans (mənfi olsa sifariş qəbul edə bilməz)
+  balans: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+  },
+  // Xal (points) — tamamlanan sifarişlərdən qazanılır
+  xal: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
 }, {
   tableName: 'ustalar',
   timestamps: true,

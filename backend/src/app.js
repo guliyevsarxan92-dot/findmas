@@ -55,8 +55,16 @@ io.on('connection', (socket) => {
   // Usta real-vaxtda konum göndərə bilər
   socket.on('konum_yenile', async ({ lat, lng }) => {
     if (nov !== 'usta') return;
-    const { Usta } = require('./models');
+    const { Usta, Sifaris } = require('./models');
     await Usta.update({ lat, lng, konum_yenilendi: new Date() }, { where: { id } });
+
+    // Aktiv sifariş varsa müştəriyə usta konumunu yayımla
+    const aktivSifaris = await Sifaris.findOne({
+      where: { usta_id: id, status: ['qebul_edildi', 'yolda', 'baslandi'] },
+    }).catch(() => null);
+    if (aktivSifaris) {
+      io.to(`istifadeci_${aktivSifaris.istifadeci_id}`).emit('usta_konum', { lat, lng });
+    }
   });
 
   socket.on('disconnect', () => {

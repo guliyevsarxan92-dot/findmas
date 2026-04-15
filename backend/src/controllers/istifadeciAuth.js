@@ -31,8 +31,10 @@ async function qeydiyyat(req, res) {
 async function giris(req, res) {
   try {
     const { telefon, sifre } = req.body;
-
-    const user = await User.findOne({ where: { telefon } });
+    const { Op } = require('sequelize');
+    const user = await User.findOne({
+      where: { telefon: { [Op.in]: [telefon, telefon.replace(/^\+/, ''), '+' + telefon.replace(/^\+/, '')] } }
+    });
     if (!user) return res.status(400).json({ xeta: 'Telefon və ya şifrə yanlışdır' });
 
     const dogru = await bcrypt.compare(sifre, user.sifre_hash);
@@ -69,4 +71,31 @@ async function profil(req, res) {
   }
 }
 
-module.exports = { qeydiyyat, giris, fcmTokenYenile, profil };
+// PUT /api/istifadeci/profil  — məlumatları yenilə
+async function profilYenile(req, res) {
+  try {
+    const { ad, soyad, email } = req.body;
+    if (!ad || !soyad) return res.status(400).json({ xeta: 'Ad və soyad məcburidir' });
+    await User.update({ ad, soyad, email }, { where: { id: req.istifadeci.id } });
+    const user = await User.findByPk(req.istifadeci.id, {
+      attributes: { exclude: ['sifre_hash', 'fcm_token'] },
+    });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+// PUT /api/istifadeci/profil-foto
+async function profilFotoYenile(req, res) {
+  try {
+    const { foto } = req.body;
+    if (!foto) return res.status(400).json({ xeta: 'Foto göndərilməyib' });
+    await User.update({ foto }, { where: { id: req.istifadeci.id } });
+    res.json({ ok: true, foto });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+module.exports = { qeydiyyat, giris, fcmTokenYenile, profil, profilYenile, profilFotoYenile };

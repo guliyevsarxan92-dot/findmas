@@ -61,4 +61,14 @@ async function ustaYoldaBildiris(istifadeci, usta) {
   );
 }
 
-module.exports = { init, yeniSifarisbildiris, ustaQebulbildiris, ustaYoldaBildiris };
+// Yeni mesaj bildirişi — hər iki tərəfə
+async function mesajBildiris(alici, metn) {
+  await bildirisSend(
+    alici.fcm_token,
+    'Yeni mesaj',
+    metn.length > 80 ? metn.substring(0, 77) + '...' : metn,
+    { nov: 'yeni_mesaj' }
+  );
+}
+
+module.exports = { init, yeniSifarisbildiris, ustaQebulbildiris, ustaYoldaBildiris, mesajBildiris };

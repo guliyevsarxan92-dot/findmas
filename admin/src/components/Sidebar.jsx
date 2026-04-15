@@ -4,6 +4,8 @@ const LINKLER = [
   { to: '/', label: '📊 Statistika' },
   { to: '/ustalar', label: '🔧 Ustalar' },
   { to: '/sifarisler', label: '📋 Sifarişlər' },
+  { to: '/balanslar', label: '💳 Balanslar' },
+  { to: '/xidmetler', label: '⚙️ Xidmətlər' },
 ]
 
 export default function Sidebar() {

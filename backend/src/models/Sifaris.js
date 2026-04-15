@@ -76,12 +76,16 @@ const Sifaris = sequelize.define('Sifaris', {
     type: DataTypes.DATE,
     allowNull: true,
   },
-  // Ödəniş
+  // Ödəniş (həmişə nağd)
   odenis_usulu: {
     type: DataTypes.ENUM('nagd', 'kart', 'balans'),
     allowNull: true,
   },
   məbleg: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
+  komisyon: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true,
   },
@@ -103,6 +107,21 @@ const Sifaris = sequelize.define('Sifaris', {
   legv_sebeb: {
     type: DataTypes.STRING,
     allowNull: true,
+  },
+  // Matching — göndərilmiş ustalar siyahısı (eyni ustaya 2. dəfə göndərməmək üçün)
+  gonderilen_ustalar: {
+    type: DataTypes.ARRAY(DataTypes.UUID),
+    defaultValue: [],
+  },
+  // Matching — bu sifariş üçün rədd edən ustalar
+  redd_eden_ustalar: {
+    type: DataTypes.ARRAY(DataTypes.UUID),
+    defaultValue: [],
+  },
+  // Cari axtarış radiusu km (20 → 30 → 50)
+  axtaris_radius: {
+    type: DataTypes.INTEGER,
+    defaultValue: 20,
   },
 }, {
   tableName: 'sifarisler',

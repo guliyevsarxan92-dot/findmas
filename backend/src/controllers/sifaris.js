@@ -1,6 +1,100 @@
 const { Sifaris, User, Usta, Mesaj } = require('../models');
-const { yaxinUstalarTap } = require('../services/konum');
+const { uygunUstalarTap } = require('../services/konum');
 const { yeniSifarisbildiris, ustaQebulbildiris, ustaYoldaBildiris } = require('../services/fcm');
+
+// ── Usta-lara sifariş göndər (socket + FCM) ─────────────────────────────────
+async function ustalaraGonder(io, sifaris, ustalar) {
+  // Yeni göndərilənləri siyahıya əlavə et
+  const yeniGonderilenIds = [
+    ...new Set([...(sifaris.gonderilen_ustalar || []), ...ustalar.map(u => u.id)]),
+  ];
+  await sifaris.update({ gonderilen_ustalar: yeniGonderilenIds });
+
+  for (const u of ustalar) {
+    await yeniSifarisbildiris(u, sifaris).catch(() => {});
+    if (io) {
+      io.to(`usta_${u.id}`).emit('yeni_sifaris', {
+        id: sifaris.id,
+        kateqoriya: sifaris.kateqoriya,
+        problem_tesvirr: sifaris.problem_tesvirr,
+        problem_foto: sifaris.problem_foto,
+        unvan_metn: sifaris.unvan_metn,
+        unvan_lat: sifaris.unvan_lat,
+        unvan_lng: sifaris.unvan_lng,
+        məsafe: u.məsafe,
+      });
+    }
+  }
+}
+
+// ── Yenidən usta axtarış (30s timeout sonra / rədd etmə sonra) ───────────────
+// Aktiv timerlər: sifaris_id → setTimeout ref
+const sifarisTimerlər = {};
+
+async function yenidenUstaAxtarAdaptiv(sifarisId, io) {
+  const RADISUSLAR = [20, 30, 50];
+
+  const sifaris = await Sifaris.findByPk(sifarisId);
+  if (!sifaris || sifaris.status !== 'gozlenilir') return;
+
+  const istisna = [
+    ...(sifaris.gonderilen_ustalar || []),
+    ...(sifaris.redd_eden_ustalar || []),
+  ];
+
+  let ustalar = await uygunUstalarTap(
+    parseFloat(sifaris.unvan_lat),
+    parseFloat(sifaris.unvan_lng),
+    sifaris.kateqoriya,
+    sifaris.axtaris_radius,
+    istisna,
+    3,
+  );
+
+  // Cari radiusda namizəd yoxdursa — radiusu genişləndir
+  if (ustalar.length === 0) {
+    const növbətiRadius = RADISUSLAR.find(r => r > sifaris.axtaris_radius);
+    if (!növbətiRadius) {
+      // Heç bir usta tapılmadı — müştəriyə bildiriş göndər
+      if (io) {
+        io.to(`istifadeci_${sifaris.istifadeci_id}`).emit('usta_tapilmadi', {
+          sifaris_id: sifarisId,
+          mesaj: 'Yaxınlıqda uyğun usta tapılmadı. Bir az sonra yenidən cəhd edin.',
+        });
+      }
+      await sifaris.update({ status: 'legv_edildi', legv_sebeb: 'usta_tapilmadi' });
+      return;
+    }
+    await sifaris.update({ axtaris_radius: növbətiRadius });
+    ustalar = await uygunUstalarTap(
+      parseFloat(sifaris.unvan_lat),
+      parseFloat(sifaris.unvan_lng),
+      sifaris.kateqoriya,
+      növbətiRadius,
+      istisna,
+      3,
+    );
+  }
+
+  if (ustalar.length === 0) {
+    if (io) {
+      io.to(`istifadeci_${sifaris.istifadeci_id}`).emit('usta_tapilmadi', {
+        sifaris_id: sifarisId,
+        mesaj: 'Yaxınlıqda uyğun usta tapılmadı.',
+      });
+    }
+    await sifaris.update({ status: 'legv_edildi', legv_sebeb: 'usta_tapilmadi' });
+    return;
+  }
+
+  await ustalaraGonder(io, sifaris, ustalar);
+
+  // 30 saniyə sonra yenidən yoxla
+  if (sifarisTimerlər[sifarisId]) clearTimeout(sifarisTimerlər[sifarisId]);
+  sifarisTimerlər[sifarisId] = setTimeout(() => {
+    yenidenUstaAxtarAdaptiv(sifarisId, io).catch(() => {});
+  }, 30000);
+}
 
 // POST /api/sifaris  — yeni sifariş ver
 async function yeniSifaris(req, res) {
@@ -26,27 +120,22 @@ async function yeniSifaris(req, res) {
       problem_foto: problem_foto || [],
     });
 
-    // Yaxınlıqdakı ustaları tap və bildiriş göndər
-    const ustalar = await yaxinUstalarTap(unvan_lat, unvan_lng, kateqoriya);
-    for (const usta of ustalar) {
-      await yeniSifarisbildiris(usta, sifaris);
+    // Fair matching: top 3 usta seç
+    const io = req.app.get('io');
+    const ustalar = await uygunUstalarTap(
+      parseFloat(unvan_lat), parseFloat(unvan_lng),
+      kateqoriya, 20, [], 3,
+    );
+
+    if (ustalar.length > 0) {
+      await ustalaraGonder(io, sifaris, ustalar);
     }
 
-    // WebSocket vasitəsilə yayımla (app.js-dəki io)
-    const io = req.app.get('io');
-    if (io) {
-      ustalar.forEach((u) => {
-        io.to(`usta_${u.id}`).emit('yeni_sifaris', {
-          id: sifaris.id,
-          kateqoriya,
-          problem_tesvirr,
-          unvan_metn,
-          unvan_lat,
-          unvan_lng,
-          məsafe: u.məsafe,
-        });
-      });
-    }
+    // 30s sonra qəbul olunmadısa yenidən axtar
+    if (sifarisTimerlər[sifaris.id]) clearTimeout(sifarisTimerlər[sifaris.id]);
+    sifarisTimerlər[sifaris.id] = setTimeout(() => {
+      yenidenUstaAxtarAdaptiv(sifaris.id, io).catch(() => {});
+    }, 30000);
 
     res.status(201).json({ sifaris_id: sifaris.id, status: sifaris.status });
   } catch (err) {
@@ -54,7 +143,7 @@ async function yeniSifaris(req, res) {
   }
 }
 
-// POST /api/sifaris/:id/qebul  — usta qəbul edir (30 san vaxt limitli)
+// POST /api/sifaris/:id/qebul  — usta qəbul edir
 async function sifarisQebul(req, res) {
   try {
     const sifaris = await Sifaris.findByPk(req.params.id, {
@@ -63,9 +152,11 @@ async function sifarisQebul(req, res) {
     if (!sifaris) return res.status(404).json({ xeta: 'Sifariş tapılmadı' });
     if (sifaris.status !== 'gozlenilir') return res.status(400).json({ xeta: 'Sifariş artıq götürülüb' });
 
-    // 30 saniyə yoxlaması
-    const gecen = (Date.now() - new Date(sifaris.yaradildi).getTime()) / 1000;
-    if (gecen > 30) return res.status(400).json({ xeta: 'Sifarişin vaxtı keçib' });
+    // Balans yoxlaması
+    const ustaBalans = await Usta.findByPk(req.usta.id, { attributes: ['balans'] });
+    if (parseFloat(ustaBalans.balans) < 0) {
+      return res.status(403).json({ xeta: 'Balansınız mənfidir. Sifariş qəbul etmək üçün balansı artırın.' });
+    }
 
     await sifaris.update({
       usta_id: req.usta.id,
@@ -73,18 +164,63 @@ async function sifarisQebul(req, res) {
       qebul_tarixi: new Date(),
     });
 
+    // Timeri ləğv et
+    if (sifarisTimerlər[sifaris.id]) {
+      clearTimeout(sifarisTimerlər[sifaris.id]);
+      delete sifarisTimerlər[sifaris.id];
+    }
+
     const usta = await Usta.findByPk(req.usta.id);
-    await ustaQebulbildiris(sifaris.istifadeci, usta);
+    await ustaQebulbildiris(sifaris.istifadeci, usta).catch(() => {});
 
     const io = req.app.get('io');
     if (io) {
+      // Müştəriyə bildiriş
       io.to(`istifadeci_${sifaris.istifadeci_id}`).emit('sifaris_qebul', {
         sifaris_id: sifaris.id,
-        usta: { id: usta.id, ad: usta.ad, soyad: usta.soyad, foto: usta.foto, telefon: usta.telefon, orta_reytinq: usta.orta_reytinq },
+        usta: {
+          id: usta.id, ad: usta.ad, soyad: usta.soyad,
+          foto: usta.foto, telefon: usta.telefon, orta_reytinq: usta.orta_reytinq,
+        },
       });
+
+      // Digər göndərilmiş ustalara — sifariş artıq götürüldü
+      const diger = (sifaris.gonderilen_ustalar || []).filter(id => id !== req.usta.id);
+      for (const ustaId of diger) {
+        io.to(`usta_${ustaId}`).emit('sifaris_bashqasi_qebul_etdi', {
+          sifaris_id: sifaris.id,
+        });
+      }
     }
 
     res.json({ ok: true, status: 'qebul_edildi' });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+// POST /api/sifaris/:id/redd  — usta rədd edir
+async function sifarisRedd(req, res) {
+  try {
+    const sifaris = await Sifaris.findByPk(req.params.id);
+    if (!sifaris) return res.status(404).json({ xeta: 'Tapılmadı' });
+    if (sifaris.status !== 'gozlenilir') return res.status(400).json({ xeta: 'Sifariş artıq götürülüb' });
+
+    // Rədd edənlər siyahısına əlavə et
+    const yeniReddSiyahi = [
+      ...new Set([...(sifaris.redd_eden_ustalar || []), req.usta.id]),
+    ];
+    await sifaris.update({ redd_eden_ustalar: yeniReddSiyahi });
+
+    res.json({ ok: true });
+
+    // Dərhal yeni usta axtar
+    const io = req.app.get('io');
+    if (sifarisTimerlər[sifaris.id]) {
+      clearTimeout(sifarisTimerlər[sifaris.id]);
+      delete sifarisTimerlər[sifaris.id];
+    }
+    yenidenUstaAxtarAdaptiv(sifaris.id, io).catch(() => {});
   } catch (err) {
     res.status(500).json({ xeta: err.message });
   }
@@ -112,8 +248,8 @@ async function statusDeyis(req, res) {
     }
 
     const tarix_sahesi = {
-      yolda: { konum_yenilendi: new Date() },
-      baslandi: { baslama_tarixi: new Date() },
+      yolda:      { gəliş_tarixi: new Date() },
+      baslandi:   { baslama_tarixi: new Date() },
       tamamlandi: { tamamlama_tarixi: new Date() },
     };
 
@@ -148,26 +284,38 @@ async function odenish(req, res) {
     if (sifaris.istifadeci_id !== req.istifadeci.id) return res.status(403).json({ xeta: 'İcazə yoxdur' });
     if (sifaris.status !== 'tamamlandi') return res.status(400).json({ xeta: 'Sifariş hələ tamamlanmayıb' });
 
+    // Ödəniş nağd — məbləği istifadəçi göndərir (və ya sifarişdən sabit qiymət)
+    const odenisMebleg = parseFloat(məbleg || 0);
+    const komisyon = parseFloat((odenisMebleg * 0.10).toFixed(2)); // 10% komisyon
+    const ustaQazanc = parseFloat((odenisMebleg - komisyon).toFixed(2));
+
     await sifaris.update({
       status: 'odendi',
-      odenis_usulu,
-      məbleg,
+      odenis_usulu: 'nagd',
+      məbleg: odenisMebleg,
+      komisyon,
       odenis_tarixi: new Date(),
     });
 
-    // Ustanın qazancını artır
+    // Ustanın qazancını, balansını, xalını, statistikasını yenilə
     const usta = await Usta.findByPk(sifaris.usta_id);
+    const XAL_PER_SIFARIS = 10;
     await usta.update({
-      umuml_qazanc: parseFloat(usta.umuml_qazanc) + parseFloat(məbleg),
+      umuml_qazanc: parseFloat(usta.umuml_qazanc) + ustaQazanc,
+      balans: parseFloat(usta.balans) - komisyon, // Komisyon balansdan çıxılır
       tamamlanan_sifaris: usta.tamamlanan_sifaris + 1,
+      xal: (usta.xal || 0) + XAL_PER_SIFARIS,
+      son_sifaris_tarixi: new Date(),
     });
 
     const io = req.app.get('io');
     if (io) {
       io.to(`usta_${sifaris.usta_id}`).emit('odenis_alindi', {
         sifaris_id: sifaris.id,
-        məbleg,
-        odenis_usulu,
+        məbleg: ustaQazanc,
+        komisyon,
+        odenis_usulu: 'nagd',
+        xal_qazanildi: XAL_PER_SIFARIS,
       });
     }
 
@@ -191,14 +339,93 @@ async function reytinqVer(req, res) {
     await sifaris.update({ reytinq, reytinq_yorum });
 
     // Ustanın orta reytinqini yenilə
-    const { fn, col } = require('sequelize');
+    const { fn, col, Op } = require('sequelize');
     const usta = await Usta.findByPk(sifaris.usta_id);
     const ort = await Sifaris.findOne({
-      where: { usta_id: sifaris.usta_id, reytinq: { [require('sequelize').Op.ne]: null } },
+      where: { usta_id: sifaris.usta_id, reytinq: { [Op.ne]: null } },
       attributes: [[fn('AVG', col('reytinq')), 'ort']],
       raw: true,
     });
-    await usta.update({ orta_reytinq: parseFloat(ort.ort).toFixed(2) });
+    if (ort && ort.ort != null) {
+      await usta.update({ orta_reytinq: parseFloat(ort.ort).toFixed(2) });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+// POST /api/sifaris/:id/legv  — istifadəçi sifarişi ləğv edir
+async function legvEt(req, res) {
+  try {
+    const sifaris = await Sifaris.findByPk(req.params.id);
+    if (!sifaris) return res.status(404).json({ xeta: 'Tapılmadı' });
+    if (sifaris.istifadeci_id !== req.istifadeci.id) return res.status(403).json({ xeta: 'İcazə yoxdur' });
+    if (!['gozlenilir', 'qebul_edildi'].includes(sifaris.status)) {
+      return res.status(400).json({ xeta: 'Bu statusda ləğv mümkün deyil' });
+    }
+    await sifaris.update({ status: 'legv_edildi' });
+
+    // Timeri sil
+    if (sifarisTimerlər[sifaris.id]) {
+      clearTimeout(sifarisTimerlər[sifaris.id]);
+      delete sifarisTimerlər[sifaris.id];
+    }
+
+    // Ustaya bildiriş göndər
+    const io = req.app.get('io');
+    if (io && sifaris.usta_id) {
+      io.to(`usta_${sifaris.usta_id}`).emit('sifaris_legv_edildi', {
+        sifaris_id: sifaris.id,
+        mesaj: 'Müştəri sifarişi ləğv etdi',
+      });
+    }
+    // Göndərilmiş bütün ustalara da bildiriş
+    if (io) {
+      for (const uId of (sifaris.gonderilen_ustalar || [])) {
+        io.to(`usta_${uId}`).emit('sifaris_legv_edildi', { sifaris_id: sifaris.id });
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+// POST /api/sifaris/:id/usta-legv  — usta qəbul etdiyi sifarişi ləğv edir (səbəb məcburi)
+async function ustaLegvEt(req, res) {
+  try {
+    const { sebeb } = req.body;
+    if (!sebeb || sebeb.trim().length < 5) {
+      return res.status(400).json({ xeta: 'Ləğv səbəbi qeyd edilməlidir (min 5 simvol)' });
+    }
+    const sifaris = await Sifaris.findByPk(req.params.id, {
+      include: [{ model: User, as: 'istifadeci' }],
+    });
+    if (!sifaris) return res.status(404).json({ xeta: 'Tapılmadı' });
+    if (sifaris.usta_id !== req.usta.id) return res.status(403).json({ xeta: 'İcazə yoxdur' });
+    if (!['qebul_edildi', 'yolda'].includes(sifaris.status)) {
+      return res.status(400).json({ xeta: 'Bu statusda ləğv mümkün deyil' });
+    }
+
+    await sifaris.update({ status: 'legv_edildi', legv_sebeb: sebeb });
+
+    // Reytinqə mənfi təsir: -0.2 penalti
+    const usta = await Usta.findByPk(req.usta.id);
+    const yeniReytinq = Math.max(0, parseFloat(usta.orta_reytinq || 3) - 0.2);
+    await usta.update({ orta_reytinq: yeniReytinq.toFixed(2) });
+
+    // Müştəriyə bildiriş
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`istifadeci_${sifaris.istifadeci_id}`).emit('sifaris_legv_edildi', {
+        sifaris_id: sifaris.id,
+        sebeb,
+        mesaj: 'Usta sifarişi ləğv etdi',
+      });
+    }
 
     res.json({ ok: true });
   } catch (err) {
@@ -210,8 +437,8 @@ async function reytinqVer(req, res) {
 async function aktivSifaris(req, res) {
   try {
     const where = req.istifadeci
-      ? { istifadeci_id: req.istifadeci.id, status: ['gozlenilir', 'qebul_edildi', 'yolda', 'baslandi'] }
-      : { usta_id: req.usta.id, status: ['qebul_edildi', 'yolda', 'baslandi'] };
+      ? { istifadeci_id: req.istifadeci.id, status: ['gozlenilir', 'qebul_edildi', 'yolda', 'baslandi', 'tamamlandi'] }
+      : { usta_id: req.usta.id, status: ['qebul_edildi', 'yolda', 'baslandi', 'tamamlandi'] };
 
     const sifaris = await Sifaris.findOne({
       where,
@@ -249,4 +476,4 @@ async function tarixce(req, res) {
   }
 }
 
-module.exports = { yeniSifaris, sifarisQebul, statusDeyis, odenish, reytinqVer, aktivSifaris, tarixce };
+module.exports = { yeniSifaris, sifarisQebul, sifarisRedd, statusDeyis, legvEt, ustaLegvEt, odenish, reytinqVer, aktivSifaris, tarixce };
