@@ -8,8 +8,10 @@ import {
   Dimensions,
   StatusBar,
   Platform,
+  Animated,
+  PanResponder,
 } from 'react-native';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView from 'react-native-maps';
@@ -20,6 +22,12 @@ import { useAuth } from '../context/AuthContext';
 import C from '../utils/colors';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Bottom sheet snap points (translateY dəyərləri)
+const SHEET_HEIGHT = SCREEN_HEIGHT * 0.9;
+const SNAP_EXPANDED = 0;                    // tamamı açıq
+const SNAP_MID = SCREEN_HEIGHT * 0.38;      // orta
+const SNAP_COLLAPSED = SCREEN_HEIGHT * 0.78; // yalnız başlıq görünür
 
 function ikonLib(ikon_lib) {
   if (ikon_lib === 'MaterialCommunityIcons' || ikon_lib === 'mci') return 'mci';
@@ -57,6 +65,57 @@ export default function AnaScreen({ navigation }) {
   const [aktivSifaris, setAktivSifaris] = useState(null);
   const [mapRegion, setMapRegion] = useState(BAKU_REGION);
   const [xidmetler, setXidmetler] = useState([]);
+
+  // Bottom sheet draggable state
+  const translateY = useRef(new Animated.Value(SNAP_MID)).current;
+  const lastY = useRef(SNAP_MID);
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+    onPanResponderGrant: () => {
+      translateY.setOffset(lastY.current);
+      translateY.setValue(0);
+    },
+    onPanResponderMove: (_, g) => {
+      const next = g.dy;
+      // Clamp hüdudlar daxilində
+      if (lastY.current + next < SNAP_EXPANDED) {
+        translateY.setValue(SNAP_EXPANDED - lastY.current);
+      } else if (lastY.current + next > SNAP_COLLAPSED) {
+        translateY.setValue(SNAP_COLLAPSED - lastY.current);
+      } else {
+        translateY.setValue(next);
+      }
+    },
+    onPanResponderRelease: (_, g) => {
+      translateY.flattenOffset();
+      const current = lastY.current + g.dy;
+      const velocity = g.vy;
+      let target;
+
+      if (velocity > 0.8) {
+        // Sürətli aşağı sürüşdürmə
+        target = current > SNAP_MID ? SNAP_COLLAPSED : SNAP_MID;
+      } else if (velocity < -0.8) {
+        // Sürətli yuxarı sürüşdürmə
+        target = current < SNAP_MID ? SNAP_EXPANDED : SNAP_MID;
+      } else {
+        // Ən yaxın snap nöqtəsi
+        const points = [SNAP_EXPANDED, SNAP_MID, SNAP_COLLAPSED];
+        target = points.reduce((a, b) =>
+          Math.abs(b - current) < Math.abs(a - current) ? b : a
+        );
+      }
+
+      lastY.current = target;
+      Animated.spring(translateY, {
+        toValue: target,
+        useNativeDriver: true,
+        bounciness: 4,
+        speed: 14,
+      }).start();
+    },
+  }), []);
 
   useEffect(() => {
     AsyncStorage.getItem('user').then(r => r && setUser(JSON.parse(r)));
@@ -172,12 +231,13 @@ export default function AnaScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
-      {/* BOTTOM SHEET */}
-      <View style={s.bottomSheet}>
-        {/* Handle */}
-        <View style={s.handle} />
-
-        <Text style={s.sheetTitle}>Xidmət seçin</Text>
+      {/* BOTTOM SHEET — draggable */}
+      <Animated.View style={[s.bottomSheet, { transform: [{ translateY }] }]}>
+        {/* Drag area: handle + başlıq */}
+        <View {...panResponder.panHandlers} style={s.dragArea}>
+          <View style={s.handle} />
+          <Text style={s.sheetTitle}>Xidmət seçin</Text>
+        </View>
 
         <ScrollView
           style={{ flex: 1 }}
@@ -215,7 +275,7 @@ export default function AnaScreen({ navigation }) {
             </View>
           ))}
         </ScrollView>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -350,10 +410,10 @@ const s = StyleSheet.create({
   /* ── BOTTOM SHEET ── */
   bottomSheet: {
     position: 'absolute',
-    bottom: 0,
+    top: SCREEN_HEIGHT * 0.1,
     left: 0,
     right: 0,
-    height: SCREEN_HEIGHT * 0.72,
+    height: SHEET_HEIGHT,
     backgroundColor: C.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -364,13 +424,16 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     elevation: 16,
   },
+  dragArea: {
+    paddingBottom: 8,
+  },
   handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
+    width: 44,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: C.border,
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sheetTitle: {
     fontSize: 22,
