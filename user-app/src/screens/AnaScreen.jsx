@@ -24,10 +24,13 @@ import C from '../utils/colors';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Bottom sheet snap points (translateY dəyərləri)
+// Tab bar ~80px, başlıq strip üçün 110px görünür saxla
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.9;
-const SNAP_EXPANDED = 0;                    // tamamı açıq
-const SNAP_MID = SCREEN_HEIGHT * 0.38;      // orta
-const SNAP_COLLAPSED = SCREEN_HEIGHT * 0.78; // yalnız başlıq görünür
+const COLLAPSED_VISIBLE = 110;              // collapsed olduqda üstdə görünəcək strip (tab bardan yuxarı)
+const TAB_BAR_HEIGHT = 80;
+const SNAP_EXPANDED = 0;                                                         // tamamı açıq
+const SNAP_MID = SCREEN_HEIGHT * 0.38;                                           // orta
+const SNAP_COLLAPSED = SHEET_HEIGHT - COLLAPSED_VISIBLE - TAB_BAR_HEIGHT; // başlıq strip qalır tab bardan yuxarı
 
 function ikonLib(ikon_lib) {
   if (ikon_lib === 'MaterialCommunityIcons' || ikon_lib === 'mci') return 'mci';

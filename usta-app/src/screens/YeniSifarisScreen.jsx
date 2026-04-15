@@ -76,9 +76,12 @@ export default function YeniSifarisScreen({ route, navigation }) {
     try {
       await api.post(`/sifaris/${sifaris.id}/qebul`);
       navigation.replace('AktivSifaris');
-    } catch {
-      Alert.alert('Sifariş əlçatmazdır', 'Sifariş başqa usta tərəfindən götürülüb.');
-      navigation.goBack();
+    } catch (err) {
+      const msg = err?.xeta || 'Naməlum xəta';
+      console.log('Qebul xeta:', msg, err);
+      Alert.alert('Qəbul edilmədi', msg, [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
     }
   }
 
