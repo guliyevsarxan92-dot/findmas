@@ -2,6 +2,18 @@ const { Sifaris, User, Usta, Mesaj } = require('../models');
 const { uygunUstalarTap } = require('../services/konum');
 const { yeniSifarisbildiris, ustaQebulbildiris, ustaYoldaBildiris } = require('../services/fcm');
 
+// ── Rədd edənlər: 1 saat müddətli ──────────────────────────────────────────
+const REDD_MUDDETI_MS = 60 * 60 * 1000; // 1 saat
+
+function aktivReddEdenler(reddSiyahi) {
+  const indi = Date.now();
+  return (reddSiyahi || []).filter(r => r.vaxt && (indi - new Date(r.vaxt).getTime()) < REDD_MUDDETI_MS);
+}
+
+function aktivReddIds(reddSiyahi) {
+  return aktivReddEdenler(reddSiyahi).map(r => r.usta_id);
+}
+
 // ── Usta-lara sifariş göndər (socket + FCM) ─────────────────────────────────
 async function ustalaraGonder(io, sifaris, ustalar) {
   // Yeni göndərilənləri siyahıya əlavə et
@@ -39,7 +51,7 @@ async function yenidenUstaAxtarAdaptiv(sifarisId, io) {
 
   const istisna = [
     ...(sifaris.gonderilen_ustalar || []),
-    ...(sifaris.redd_eden_ustalar || []),
+    ...aktivReddIds(sifaris.redd_eden_ustalar),
   ];
 
   let ustalar = await uygunUstalarTap(
@@ -206,11 +218,10 @@ async function sifarisRedd(req, res) {
     if (!sifaris) return res.status(404).json({ xeta: 'Tapılmadı' });
     if (sifaris.status !== 'gozlenilir') return res.status(400).json({ xeta: 'Sifariş artıq götürülüb' });
 
-    // Rədd edənlər siyahısına əlavə et
-    const yeniReddSiyahi = [
-      ...new Set([...(sifaris.redd_eden_ustalar || []), req.usta.id]),
-    ];
-    await sifaris.update({ redd_eden_ustalar: yeniReddSiyahi });
+    // Rədd edənlər siyahısına əlavə et (vaxtla birlikdə)
+    const mövcudRedd = (sifaris.redd_eden_ustalar || []).filter(r => r.usta_id !== req.usta.id);
+    mövcudRedd.push({ usta_id: req.usta.id, vaxt: new Date().toISOString() });
+    await sifaris.update({ redd_eden_ustalar: mövcudRedd });
 
     res.json({ ok: true });
 
@@ -373,18 +384,19 @@ async function legvEt(req, res) {
       delete sifarisTimerlər[sifaris.id];
     }
 
-    // Ustaya bildiriş göndər
+    // Əlaqəli ustalara bildiriş göndər (rədd edənlər istisna — onlar artıq bu sifarişlə bağlı deyil)
     const io = req.app.get('io');
-    if (io && sifaris.usta_id) {
-      io.to(`usta_${sifaris.usta_id}`).emit('sifaris_legv_edildi', {
-        sifaris_id: sifaris.id,
-        mesaj: 'Müştəri sifarişi ləğv etdi',
-      });
-    }
-    // Göndərilmiş bütün ustalara da bildiriş
     if (io) {
-      for (const uId of (sifaris.gonderilen_ustalar || [])) {
-        io.to(`usta_${uId}`).emit('sifaris_legv_edildi', { sifaris_id: sifaris.id });
+      const reddEdenler = new Set(aktivReddIds(sifaris.redd_eden_ustalar));
+      const bildirilecek = new Set(
+        (sifaris.gonderilen_ustalar || []).filter(id => !reddEdenler.has(id))
+      );
+      if (sifaris.usta_id) bildirilecek.add(sifaris.usta_id);
+      for (const uId of bildirilecek) {
+        io.to(`usta_${uId}`).emit('sifaris_legv_edildi', {
+          sifaris_id: sifaris.id,
+          mesaj: 'Müştəri sifarişi ləğv etdi',
+        });
       }
     }
 
@@ -410,22 +422,32 @@ async function ustaLegvEt(req, res) {
       return res.status(400).json({ xeta: 'Bu statusda ləğv mümkün deyil' });
     }
 
-    await sifaris.update({ status: 'legv_edildi', legv_sebeb: sebeb });
-
     // Reytinqə mənfi təsir: -0.2 penalti
     const usta = await Usta.findByPk(req.usta.id);
     const yeniReytinq = Math.max(0, parseFloat(usta.orta_reytinq || 3) - 0.2);
     await usta.update({ orta_reytinq: yeniReytinq.toFixed(2) });
 
-    // Müştəriyə bildiriş
+    // Sifarişi yenidən gözlənilir statusuna qaytar və başqa usta axtar
+    const mövcudRedd = (sifaris.redd_eden_ustalar || []).filter(r => r.usta_id !== req.usta.id);
+    mövcudRedd.push({ usta_id: req.usta.id, vaxt: new Date().toISOString() });
+    await sifaris.update({
+      status: 'gozlenilir',
+      usta_id: null,
+      legv_sebeb: null,
+      redd_eden_ustalar: mövcudRedd,
+    });
+
+    // Müştəriyə bildiriş — yeni usta axtarılır
     const io = req.app.get('io');
     if (io) {
-      io.to(`istifadeci_${sifaris.istifadeci_id}`).emit('sifaris_legv_edildi', {
+      io.to(`istifadeci_${sifaris.istifadeci_id}`).emit('usta_yeniden_axtarilir', {
         sifaris_id: sifaris.id,
-        sebeb,
-        mesaj: 'Usta sifarişi ləğv etdi',
+        mesaj: 'Usta sifarişi ləğv etdi, yeni usta axtarılır...',
       });
     }
+
+    // Dərhal yeni usta axtar
+    yenidenUstaAxtarAdaptiv(sifaris.id, io).catch(() => {});
 
     res.json({ ok: true });
   } catch (err) {
@@ -438,7 +460,7 @@ async function aktivSifaris(req, res) {
   try {
     const where = req.istifadeci
       ? { istifadeci_id: req.istifadeci.id, status: ['gozlenilir', 'qebul_edildi', 'yolda', 'baslandi', 'tamamlandi'] }
-      : { usta_id: req.usta.id, status: ['qebul_edildi', 'yolda', 'baslandi', 'tamamlandi'] };
+      : { usta_id: req.usta.id, status: ['qebul_edildi', 'yolda', 'baslandi'] };
 
     const sifaris = await Sifaris.findOne({
       where,

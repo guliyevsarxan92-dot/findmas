@@ -113,9 +113,9 @@ const Sifaris = sequelize.define('Sifaris', {
     type: DataTypes.ARRAY(DataTypes.UUID),
     defaultValue: [],
   },
-  // Matching — bu sifariş üçün rədd edən ustalar
+  // Matching — bu sifariş üçün rədd edən ustalar [{usta_id, vaxt}]
   redd_eden_ustalar: {
-    type: DataTypes.ARRAY(DataTypes.UUID),
+    type: DataTypes.JSONB,
     defaultValue: [],
   },
   // Cari axtarış radiusu km (20 → 30 → 50)
