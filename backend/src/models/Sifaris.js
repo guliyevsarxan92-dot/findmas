@@ -76,6 +76,11 @@ const Sifaris = sequelize.define('Sifaris', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  // Xidmət haqqı (usta qoyur)
+  xidmet_haqqi: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
   // Ödəniş (həmişə nağd)
   odenis_usulu: {
     type: DataTypes.ENUM('nagd', 'kart', 'balans'),

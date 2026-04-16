@@ -40,6 +40,7 @@ export default function AktivSifarisScreen({ navigation }) {
   const [sifaris, setSifaris] = useState(null);
   const [userLoc, setUserLoc] = useState(null);
   const [ustaLoc, setUstaLoc] = useState(null);
+  const [secilmisReytinq, setSecilmisReytinq] = useState(0);
   const socketRef = useRef(null);
   const mapRef = useRef(null);
 
@@ -67,10 +68,10 @@ export default function AktivSifarisScreen({ navigation }) {
     const socket = io(WS_URL, { auth: { token } });
     socketRef.current = socket;
 
-    socket.on('sifaris_status', ({ status, usta }) => {
+    socket.on('sifaris_status', ({ status, usta, xidmet_haqqi }) => {
       setSifaris(prev => {
         if (!prev) return prev;
-        return { ...prev, status, ...(usta ? { usta } : {}) };
+        return { ...prev, status, ...(usta ? { usta } : {}), ...(xidmet_haqqi ? { xidmet_haqqi } : {}) };
       });
     });
 
@@ -79,12 +80,27 @@ export default function AktivSifarisScreen({ navigation }) {
       Vibration.vibrate(200);
     });
 
+    // Usta ləğv etdi — yeni usta axtarılır, UstaAxtarilir ekranına qayıt
+    socket.on('usta_yeniden_axtarilir', ({ sifaris_id, mesaj }) => {
+      Alert.alert('Yeni usta axtarılır', mesaj || 'Usta sifarişi ləğv etdi, yeni usta axtarılır...');
+      navigation.replace('UstaAxtarilir', { sifaris_id });
+    });
+
     // Real-vaxt usta konumu
     socket.on('usta_konum', ({ lat, lng }) => {
       const coord = { latitude: parseFloat(lat), longitude: parseFloat(lng) };
       setUstaLoc(coord);
       setSifaris(prev => prev ? { ...prev, usta: { ...prev.usta, lat, lng } } : prev);
     });
+  }
+
+  function reytinqSec(n) { setSecilmisReytinq(n); }
+
+  async function reytinqGonder() {
+    try {
+      await api.post(`/sifaris/${sifaris.id}/reytinq`, { reytinq: secilmisReytinq });
+      setSifaris(prev => ({ ...prev, reytinq: secilmisReytinq }));
+    } catch {}
   }
 
   async function legvEt() {
@@ -271,16 +287,48 @@ export default function AktivSifarisScreen({ navigation }) {
 
       <View style={s.bottomCard}>
         <View style={s.handle} />
-        <Text style={s.statusTitle}>Sifariş tamamlandı</Text>
-        <Text style={[s.addressText, { marginBottom: 20 }]}>
-          Ödənişi tamamlayın
-        </Text>
+
+        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+          <View style={s.doneIcon}>
+            <Ionicons name="checkmark-circle" size={48} color="#22C55E" />
+          </View>
+          <Text style={s.statusTitle}>Sifariş tamamlandı</Text>
+          {sifaris.xidmet_haqqi ? (
+            <Text style={s.xidmetHaqqi}>Xidmət haqqı: {parseFloat(sifaris.xidmet_haqqi).toFixed(2)} ₼ (nağd)</Text>
+          ) : null}
+        </View>
+
+        {!sifaris.reytinq ? (
+          <>
+            <Text style={s.ratingLabel}>Ustanı qiymətləndirin</Text>
+            <View style={s.starRow}>
+              {[1,2,3,4,5].map(n => (
+                <TouchableOpacity key={n} onPress={() => reytinqSec(n)} activeOpacity={0.7}>
+                  <Ionicons
+                    name={n <= (secilmisReytinq || 0) ? 'star' : 'star-outline'}
+                    size={36} color="#F59E0B"
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            {secilmisReytinq > 0 && (
+              <TouchableOpacity
+                style={s.primaryBtn}
+                onPress={reytinqGonder}
+                activeOpacity={0.8}>
+                <Text style={s.primaryBtnText}>Göndər</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        ) : (
+          <Text style={{ textAlign: 'center', color: C.textSoft, marginBottom: 12 }}>Təşəkkür edirik!</Text>
+        )}
+
         <TouchableOpacity
-          style={s.primaryBtn}
-          onPress={() => navigation.navigate('Odenish', { sifaris_id: sifaris.id })}
-          activeOpacity={0.8}>
-          <Ionicons name="card-outline" size={20} color={C.white} />
-          <Text style={s.primaryBtnText}>Ödəniş et</Text>
+          style={s.outlineBtnSingle}
+          onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Main' }] })}
+          activeOpacity={0.7}>
+          <Text style={s.outlineBtnText}>Ana səhifəyə qayıt</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -452,15 +500,14 @@ const s = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // --- Primary green button (State C) ---
+  // --- Primary green button ---
   primaryBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
     backgroundColor: C.primary,
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    marginTop: 12,
     shadowColor: '#22C55E',
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -471,4 +518,17 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: C.white,
   },
+  outlineBtnSingle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    marginTop: 8,
+  },
+  doneIcon: { marginBottom: 8 },
+  xidmetHaqqi: { fontSize: 15, fontWeight: '600', color: C.primary, marginTop: 4 },
+  ratingLabel: { fontSize: 14, fontWeight: '600', color: C.dark, textAlign: 'center', marginBottom: 8 },
+  starRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 4 },
 });

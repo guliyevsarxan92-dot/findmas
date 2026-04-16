@@ -105,6 +105,9 @@ export default function AktivSifarisScreen({ navigation }) {
   const [legvModal, setLegvModal] = useState(false);
   const [legvSebeb, setLegvSebeb] = useState('');
   const [legvYuklenir, setLegvYuklenir] = useState(false);
+  const [haqqiModal, setHaqqiModal]     = useState(false);
+  const [xidmetHaqqi, setXidmetHaqqi]   = useState('');
+  const [haqqiYuklenir, setHaqqiYuklenir] = useState(false);
   const socketRef                 = useRef(null);
   const mapRef                    = useRef(null);
 
@@ -142,13 +145,6 @@ export default function AktivSifarisScreen({ navigation }) {
     socket.on('usta_konum', ({ lat, lng }) => {
       setUstaLoc({ latitude: parseFloat(lat), longitude: parseFloat(lng) });
     });
-    socket.on('sifaris_legv_edildi', ({ mesaj }) => {
-      Alert.alert(
-        'Sifariş ləğv edildi',
-        mesaj || 'Müştəri sifarişi ləğv etdi.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
-      );
-    });
     socket.on('yeni_mesaj', () => {
       // Mesaj bildirişi — AktivSifaris ekranında aktivdirsə Chat-da göstəriləcək
     });
@@ -158,6 +154,10 @@ export default function AktivSifarisScreen({ navigation }) {
     try {
       await api.post(`/sifaris/${sifaris.id}/status`, { yeni_status: novbeti });
       setSifaris(prev => ({ ...prev, status: novbeti }));
+      // "Yola çıxdım" basıldıqda xəritədə naviqasiya aç
+      if (novbeti === 'yolda') {
+        navAc();
+      }
     } catch (err) {
       Alert.alert('Xəta', err.xeta || 'Xəta baş verdi');
     }
@@ -178,6 +178,24 @@ export default function AktivSifarisScreen({ navigation }) {
 
   function mesajYaz() {
     if (sifaris) navigation.navigate('Chat', { sifaris_id: sifaris.id });
+  }
+
+  async function isiBitir() {
+    const haqq = parseFloat(xidmetHaqqi);
+    if (!haqq || haqq <= 0) {
+      Alert.alert('Xəta', 'Xidmət haqqını düzgün daxil edin');
+      return;
+    }
+    setHaqqiYuklenir(true);
+    try {
+      await api.post(`/sifaris/${sifaris.id}/status`, { yeni_status: 'tamamlandi', xidmet_haqqi: haqq });
+      setHaqqiModal(false);
+      setSifaris(prev => ({ ...prev, status: 'tamamlandi', xidmet_haqqi: haqq }));
+    } catch (err) {
+      Alert.alert('Xəta', err.response?.data?.xeta || 'Xəta baş verdi');
+    } finally {
+      setHaqqiYuklenir(false);
+    }
   }
 
   async function ustaLegvet() {
@@ -371,16 +389,17 @@ export default function AktivSifarisScreen({ navigation }) {
           if (isDone) return null; // hide completed steps
 
           if (isCurrent) {
+            const onPressFn = isLast
+              ? () => setHaqqiModal(true)
+              : () => Alert.alert('Təsdiq', `"${step.label}" əməliyyatını təsdiqləyin?`, [
+                  { text: 'Bəli', onPress: () => statusDeyis(step.novbeti) },
+                  { text: 'Xeyr' },
+                ]);
             return (
               <TouchableOpacity
                 key={step.novbeti}
                 style={[s.actionBtn, isLast && s.outlinedBtn]}
-                onPress={() =>
-                  Alert.alert('Təsdiq', `"${step.label}" əməliyyatını təsdiqləyin?`, [
-                    { text: 'Bəli', onPress: () => statusDeyis(step.novbeti) },
-                    { text: 'Xeyr' },
-                  ])
-                }
+                onPress={onPressFn}
                 activeOpacity={0.85}
               >
                 <Text style={[s.actionBtnText, isLast && s.outlinedBtnText]}>{step.label}</Text>
@@ -411,6 +430,37 @@ export default function AktivSifarisScreen({ navigation }) {
         )}
 
       </View>
+
+      {/* Xidmət haqqı modal */}
+      <Modal visible={haqqiModal} transparent animationType="slide">
+        <View style={s.modalOverlay}>
+          <View style={s.modalBox}>
+            <Text style={s.modalBasliq}>Xidmət haqqı</Text>
+            <Text style={s.modalAciq}>Müştəridən nağd alacağınız məbləği daxil edin</Text>
+            <TextInput
+              style={s.modalInput}
+              value={xidmetHaqqi}
+              onChangeText={setXidmetHaqqi}
+              placeholder="Məs: 50"
+              placeholderTextColor={C.textMuted}
+              keyboardType="numeric"
+            />
+            <TouchableOpacity
+              style={[s.modalBtn, { backgroundColor: C.primary }]}
+              onPress={isiBitir}
+              disabled={haqqiYuklenir}
+              activeOpacity={0.85}
+            >
+              <Text style={[s.modalBtnMetn, { color: C.white }]}>
+                {haqqiYuklenir ? 'Göndərilir...' : 'İşi bitir'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.modalBtn} onPress={() => setHaqqiModal(false)} activeOpacity={0.85}>
+              <Text style={[s.modalBtnMetn, { color: C.textSoft }]}>Geri qayıt</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Cancel modal */}
       <Modal visible={legvModal} transparent animationType="slide">

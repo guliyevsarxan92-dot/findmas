@@ -34,6 +34,7 @@ router.put('/usta/konum', ustaAuth, ustaAuthCtrl.konumYenile);
 router.put('/usta/fcm-token', ustaAuth, ustaAuthCtrl.fcmTokenYenile);
 router.get('/usta/profil', ustaAuth, ustaAuthCtrl.profil);
 router.put('/usta/profil-foto', ustaAuth, ustaAuthCtrl.profilFotoYenile);
+router.put('/usta/senedler', ustaAuth, ustaAuthCtrl.senedlerYenile);
 
 // Sifariş
 const sifarisCtrl = require('../controllers/sifaris');
@@ -48,6 +49,7 @@ router.post('/sifaris/:id/odenish', istifadeciAuth, sifarisCtrl.odenish);
 router.post('/sifaris/:id/reytinq', istifadeciAuth, sifarisCtrl.reytinqVer);
 router.get('/sifaris/aktiv', ikiliAuth, sifarisCtrl.aktivSifaris);
 router.get('/sifaris/tarixce', ikiliAuth, sifarisCtrl.tarixce);
+router.get('/usta/qazanc', ustaAuth, sifarisCtrl.ustaQazanc);
 
 // Mesaj
 const mesajCtrl = require('../controllers/mesaj');
@@ -86,6 +88,7 @@ router.put('/admin/xidmet/:id', adminAuth, xidmetCtrl.yenile);
 router.delete('/admin/xidmet/:id', adminAuth, xidmetCtrl.sil);
 router.put('/admin/usta/:id/tesdiql', adminAuth, adminCtrl.ustaTesdiqlə);
 router.put('/admin/usta/:id/blokla', adminAuth, adminCtrl.ustaBlokla);
+router.put('/admin/usta/:id/blok-ac', adminAuth, adminCtrl.ustaBlokAc);
 router.get('/admin/statistika', adminAuth, adminCtrl.statistika);
 router.get('/admin/sifarisler', adminAuth, adminCtrl.sifarisler);
 

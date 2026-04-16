@@ -264,6 +264,48 @@ async function statusDeyis(req, res) {
       tamamlandi: { tamamlama_tarixi: new Date() },
     };
 
+    // Tamamlandı — xidmət haqqı məcburidir, ödəniş nağd olaraq avtomatik tamamlanır
+    if (yeni_status === 'tamamlandi') {
+      const { xidmet_haqqi } = req.body;
+      const haqq = parseFloat(xidmet_haqqi || 0);
+      if (!haqq || haqq <= 0) {
+        return res.status(400).json({ xeta: 'Xidmət haqqını daxil edin' });
+      }
+      const komisyon = parseFloat((haqq * 0.10).toFixed(2));
+
+      await sifaris.update({
+        status: 'tamamlandi',
+        tamamlama_tarixi: new Date(),
+        xidmet_haqqi: haqq,
+        odenis_usulu: 'nagd',
+        məbleg: haqq,
+        komisyon,
+        odenis_tarixi: new Date(),
+      });
+
+      // Ustanın qazancını, balansını, xalını, statistikasını yenilə
+      const usta = await Usta.findByPk(req.usta.id);
+      const ustaQazanc = parseFloat((haqq - komisyon).toFixed(2));
+      const XAL_PER_SIFARIS = 10;
+      await usta.update({
+        umuml_qazanc: parseFloat(usta.umuml_qazanc) + ustaQazanc,
+        balans: parseFloat(usta.balans) - komisyon,
+        tamamlanan_sifaris: usta.tamamlanan_sifaris + 1,
+        xal: (usta.xal || 0) + XAL_PER_SIFARIS,
+        son_sifaris_tarixi: new Date(),
+      });
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`istifadeci_${sifaris.istifadeci_id}`).emit('sifaris_status', {
+          sifaris_id: sifaris.id,
+          status: 'tamamlandi',
+          xidmet_haqqi: haqq,
+        });
+      }
+      return res.json({ ok: true, status: 'tamamlandi', xidmet_haqqi: haqq, komisyon });
+    }
+
     await sifaris.update({ status: yeni_status, ...tarix_sahesi[yeni_status] });
 
     if (yeni_status === 'yolda') {
@@ -344,7 +386,7 @@ async function reytinqVer(req, res) {
 
     if (!sifaris) return res.status(404).json({ xeta: 'Tapılmadı' });
     if (sifaris.istifadeci_id !== req.istifadeci.id) return res.status(403).json({ xeta: 'İcazə yoxdur' });
-    if (sifaris.status !== 'odendi') return res.status(400).json({ xeta: 'Əvvəlcə ödəniş edin' });
+    if (!['tamamlandi', 'odendi'].includes(sifaris.status)) return res.status(400).json({ xeta: 'Sifariş hələ tamamlanmayıb' });
     if (sifaris.reytinq) return res.status(400).json({ xeta: 'Artıq reytinq vermisiniz' });
 
     await sifaris.update({ reytinq, reytinq_yorum });
@@ -498,4 +540,53 @@ async function tarixce(req, res) {
   }
 }
 
-module.exports = { yeniSifaris, sifarisQebul, sifarisRedd, statusDeyis, legvEt, ustaLegvEt, odenish, reytinqVer, aktivSifaris, tarixce };
+// GET /api/usta/qazanc  — günlük, həftəlik, aylıq qazanc statistikası
+async function ustaQazanc(req, res) {
+  try {
+    const { Op, fn, col } = require('sequelize');
+    const ustaId = req.usta.id;
+    const indi = new Date();
+
+    const gunBaslangic = new Date(indi.getFullYear(), indi.getMonth(), indi.getDate());
+    const hefteBaslangic = new Date(gunBaslangic);
+    hefteBaslangic.setDate(hefteBaslangic.getDate() - hefteBaslangic.getDay() + 1); // Bazar ertəsi
+    if (hefteBaslangic > gunBaslangic) hefteBaslangic.setDate(hefteBaslangic.getDate() - 7);
+    const ayBaslangic = new Date(indi.getFullYear(), indi.getMonth(), 1);
+
+    const where = (baslangic) => ({
+      usta_id: ustaId,
+      status: 'tamamlandi',
+      tamamlama_tarixi: { [Op.gte]: baslangic },
+    });
+
+    const hesabla = async (baslangic) => {
+      const result = await Sifaris.findOne({
+        where: where(baslangic),
+        attributes: [
+          [fn('COALESCE', fn('SUM', col('xidmet_haqqi')), 0), 'cem_haqqi'],
+          [fn('COALESCE', fn('SUM', col('komisyon')), 0), 'cem_komisyon'],
+          [fn('COUNT', col('id')), 'say'],
+        ],
+        raw: true,
+      });
+      return {
+        qazanc: parseFloat(result.cem_haqqi) - parseFloat(result.cem_komisyon),
+        xidmet_haqqi: parseFloat(result.cem_haqqi),
+        komisyon: parseFloat(result.cem_komisyon),
+        say: parseInt(result.say),
+      };
+    };
+
+    const [gunluk, heftelik, aylik] = await Promise.all([
+      hesabla(gunBaslangic),
+      hesabla(hefteBaslangic),
+      hesabla(ayBaslangic),
+    ]);
+
+    res.json({ gunluk, heftelik, aylik });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+module.exports = { yeniSifaris, sifarisQebul, sifarisRedd, statusDeyis, legvEt, ustaLegvEt, odenish, reytinqVer, aktivSifaris, tarixce, ustaQazanc };
