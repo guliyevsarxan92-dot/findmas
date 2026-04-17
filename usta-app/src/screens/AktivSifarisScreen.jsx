@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Linking, Alert, Dimensions, Platform, Image, ScrollView, Modal,
+  Linking, Alert, Dimensions, Platform, Image, ScrollView, TextInput, Modal,
 } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
