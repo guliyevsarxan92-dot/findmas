@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Alert, Vibration, Platform, Dimensions,
+  Animated, PanResponder,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +11,7 @@ import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import api, { WS_URL } from '../services/api';
+import { startBackgroundLocation, stopBackgroundLocation } from '../services/backgroundLocation';
 import C from '../utils/colors';
 
 const { width: SW } = Dimensions.get('window');
@@ -28,14 +30,12 @@ export default function AnaScreen({ navigation }) {
   const [toggling, setToggling] = useState(false);
 
   const socketRef = useRef(null);
-  const konumInterval = useRef(null);
 
   /* ─── Boot ─────────────────────────────────────────────── */
   useEffect(() => {
     bootstrap();
     return () => {
       socketRef.current?.disconnect();
-      if (konumInterval.current) clearInterval(konumInterval.current);
     };
   }, []);
 
@@ -45,13 +45,24 @@ export default function AnaScreen({ navigation }) {
   }, []));
 
   async function bootstrap() {
-    // Load usta from storage
+    // Load usta from storage first (fast)
     const raw = await AsyncStorage.getItem('usta');
-    if (raw) {
-      const u = JSON.parse(raw);
+    let u = raw ? JSON.parse(raw) : null;
+    if (u) {
       setUsta(u);
       setOnlayn(u.onlayn || false);
     }
+
+    // Fetch fresh profile from backend (tesdiqlendi statusu yenilənsin)
+    try {
+      const { data } = await api.get('/usta/profil');
+      if (data) {
+        u = { ...u, ...data };
+        setUsta(u);
+        setOnlayn(u.onlayn || false);
+        await AsyncStorage.setItem('usta', JSON.stringify(u));
+      }
+    } catch {}
 
     // Get current position for map marker
     try {
@@ -97,7 +108,7 @@ export default function AnaScreen({ navigation }) {
     socket.on('sifaris_legv_edildi', ({ mesaj } = {}) => {
       Vibration.vibrate(500);
       setAktivSifaris(null);
-      navigation.popToTop();
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
       Alert.alert('Sifariş ləğv edildi', mesaj || 'Müştəri sifarişi ləğv etdi.');
     });
 
@@ -118,6 +129,28 @@ export default function AnaScreen({ navigation }) {
       Alert.alert('Hesab təsdiqləndi!', mesaj || 'Admin hesabınızı təsdiqlədi. Artıq onlayn ola bilərsiniz.');
     });
 
+    socket.on('hesab_bloklandi', async ({ blok_bitis, blok_sebeb, muddet_metn }) => {
+      const raw = await AsyncStorage.getItem('usta');
+      if (raw) {
+        const u = JSON.parse(raw);
+        const yeniUsta = { ...u, bloklanib: true, blok_bitis, blok_sebeb, onlayn: false };
+        await AsyncStorage.setItem('usta', JSON.stringify(yeniUsta));
+        setUsta(yeniUsta);
+        setOnlayn(false);
+      }
+    });
+
+    socket.on('blok_acildi', async () => {
+      const raw = await AsyncStorage.getItem('usta');
+      if (raw) {
+        const u = JSON.parse(raw);
+        const yeniUsta = { ...u, bloklanib: false, blok_bitis: null, blok_sebeb: null };
+        await AsyncStorage.setItem('usta', JSON.stringify(yeniUsta));
+        setUsta(yeniUsta);
+      }
+      Alert.alert('Blok açıldı', 'Hesabınızın bloku açıldı.');
+    });
+
     socket.on('balans_artdi', async ({ yeni_balans, məbleg }) => {
       const raw = await AsyncStorage.getItem('usta');
       if (raw) {
@@ -136,8 +169,8 @@ export default function AnaScreen({ navigation }) {
 
     if (deger && !usta?.tesdiqlendi) {
       Alert.alert(
-        'Hesab tesdiqlenmeib',
-        'Admin hesabinizi hele tesdiqlemeyib. Onlayn ola bilmezsiniz.'
+        'Hesab təsdiqlənməyib',
+        'Hesabınız hələ admin tərəfindən təsdiqlənməyib. Təsdiq edildikdən sonra onlayn ola bilərsiniz.',
       );
       return;
     }
@@ -151,32 +184,13 @@ export default function AnaScreen({ navigation }) {
       await AsyncStorage.setItem('usta', JSON.stringify(yeniUsta));
 
       if (deger) {
-        // Start sending location every 30 s
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          konumInterval.current = setInterval(async () => {
-            try {
-              const loc = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-              });
-              setKonum({
-                latitude: loc.coords.latitude,
-                longitude: loc.coords.longitude,
-              });
-              api
-                .put('/usta/konum', {
-                  lat: loc.coords.latitude,
-                  lng: loc.coords.longitude,
-                })
-                .catch(() => {});
-            } catch {}
-          }, 30000);
-        }
+        await startBackgroundLocation();
       } else {
-        if (konumInterval.current) clearInterval(konumInterval.current);
+        await stopBackgroundLocation();
       }
     } catch (err) {
-      Alert.alert('Xeta', err.xeta || 'Xeta bas verdi');
+      const msg = err?.response?.data?.xeta || err?.xeta || 'Xəta baş verdi';
+      Alert.alert('Xəta', msg);
     } finally {
       setToggling(false);
     }
@@ -187,9 +201,97 @@ export default function AnaScreen({ navigation }) {
   const qazanc = parseFloat(usta?.umuml_qazanc ?? 0).toFixed(2);
   const markerCoord = konum || BAKU;
 
+  /* ─── Swipe Toggle ─────────────────────────────────────── */
+  const TRACK_W = 200;
+  const THUMB_W = 56;
+  const MAX_SLIDE = TRACK_W - THUMB_W - 8;
+  const slideAnim = useRef(new Animated.Value(onlayn ? MAX_SLIDE : 0)).current;
+  const bgAnim = useRef(new Animated.Value(onlayn ? 1 : 0)).current;
+  const isSliding = useRef(false);
+
+  // Sync animation when onlayn changes externally
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: onlayn ? MAX_SLIDE : 0,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+    Animated.timing(bgAnim, {
+      toValue: onlayn ? 1 : 0,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [onlayn]);
+
+  const onlaynRef = useRef(onlayn);
+  useEffect(() => { onlaynRef.current = onlayn; }, [onlayn]);
+
+  const panResponder = useMemo(() =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !toggling,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 5,
+      onPanResponderGrant: () => {
+        isSliding.current = true;
+        slideAnim.stopAnimation();
+      },
+      onPanResponderMove: (_, g) => {
+        const base = onlaynRef.current ? MAX_SLIDE : 0;
+        const val = Math.max(0, Math.min(MAX_SLIDE, base + g.dx));
+        slideAnim.setValue(val);
+        bgAnim.setValue(val / MAX_SLIDE);
+      },
+      onPanResponderRelease: (_, g) => {
+        isSliding.current = false;
+        const cur = onlaynRef.current;
+        const base = cur ? MAX_SLIDE : 0;
+        const final = base + g.dx;
+        const threshold = MAX_SLIDE * 0.45;
+
+        if (!cur && final > threshold) {
+          Animated.spring(slideAnim, { toValue: MAX_SLIDE, useNativeDriver: false, bounciness: 4 }).start();
+          Animated.timing(bgAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
+          onlaynDeyis(true);
+        } else if (cur && final < MAX_SLIDE - threshold) {
+          Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
+          Animated.timing(bgAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+          onlaynDeyis(false);
+        } else {
+          Animated.spring(slideAnim, { toValue: cur ? MAX_SLIDE : 0, useNativeDriver: false, bounciness: 6 }).start();
+          Animated.timing(bgAnim, { toValue: cur ? 1 : 0, duration: 200, useNativeDriver: false }).start();
+        }
+      },
+    })
+  , []);
+
+  const trackBg = bgAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#3a3a3c', C.primary],
+  });
+
+  const slideLabel = onlayn ? 'Online' : 'Offline';
+
   /* ─── Render ─────────────────────────────────────────────── */
   return (
     <View style={s.root}>
+
+      {/* ── BLOK EKRANI ── */}
+      {usta?.bloklanib && (
+        <View style={s.blokEkran}>
+          <View style={s.blokKart}>
+            <View style={s.blokIkon}>
+              <Ionicons name="ban-outline" size={48} color="#DC2626" />
+            </View>
+            <Text style={s.blokBasliq}>Hesabınız bloklanıb</Text>
+            {usta.blok_sebeb && <Text style={s.blokSebeb}>{usta.blok_sebeb}</Text>}
+            <Text style={s.blokMuddet}>
+              {usta.blok_bitis
+                ? `Bitmə tarixi: ${new Date(usta.blok_bitis).toLocaleDateString('az')}`
+                : 'Müddət: Həmişəlik'}
+            </Text>
+            <Text style={s.blokAlt}>Sualınız varsa dəstək xətti ilə əlaqə saxlayın.</Text>
+          </View>
+        </View>
+      )}
 
       {/* ── Full-screen map ── */}
       <MapView
@@ -216,7 +318,7 @@ export default function AnaScreen({ navigation }) {
 
       {/* ── TOP BAR ── */}
       <View style={[s.topBar, { top: TOP_INSET }]}>
-        {/* Avatar */}
+        {/* Avatar (sol) */}
         <View style={s.avatar}>
           {basSehri ? (
             <Text style={s.avatarText}>{basSehri}</Text>
@@ -225,23 +327,23 @@ export default function AnaScreen({ navigation }) {
           )}
         </View>
 
-        {/* Segmented Online / Offline toggle */}
-        <View style={s.segment}>
-          <TouchableOpacity
-            style={[s.segOption, !onlayn && s.segOptionActive]}
-            onPress={() => !toggling && onlayn && onlaynDeyis(false)}
-            activeOpacity={0.8}
+        {/* Swipe Online / Offline toggle (ortada) */}
+        <Animated.View style={[s.slideTrack, { backgroundColor: trackBg }]}>
+          <Text style={s.slideTrackLabel}>{slideLabel}</Text>
+          <Animated.View
+            style={[s.slideThumb, { transform: [{ translateX: slideAnim }] }]}
+            {...panResponder.panHandlers}
           >
-            <Text style={[s.segText, !onlayn && s.segTextActive]}>Offline</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.segOption, onlayn && s.segOptionActive]}
-            onPress={() => !toggling && !onlayn && onlaynDeyis(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={[s.segText, onlayn && s.segTextActive]}>Online</Text>
-          </TouchableOpacity>
-        </View>
+            <Ionicons
+              name={onlayn ? 'power' : 'power-outline'}
+              size={22}
+              color={onlayn ? C.primary : '#888'}
+            />
+          </Animated.View>
+        </Animated.View>
+
+        {/* Sağ tərəf boş placeholder (avatar ilə simmetrik) */}
+        <View style={{ width: 44 }} />
       </View>
 
       {/* ── ACTIVE ORDER BANNER (shown below topbar) ── */}
@@ -255,6 +357,14 @@ export default function AnaScreen({ navigation }) {
           <Text style={s.aktivText}>Aktiv sifaris davam edir</Text>
           <Ionicons name="chevron-forward" size={14} color={C.white} />
         </TouchableOpacity>
+      )}
+
+      {/* ── TESDIQ GOZLENILIR BANNER ── */}
+      {usta && !usta.tesdiqlendi && !usta.bloklanib && (
+        <View style={[s.tesdiqBanner, { top: TOP_INSET + 68 }]}>
+          <Ionicons name="time-outline" size={18} color="#F59E0B" />
+          <Text style={s.tesdiqText}>Hesabınız təsdiq gözləyir</Text>
+        </View>
       )}
 
       {/* ── WAITING CARD (online but no active order) ── */}
@@ -344,34 +454,41 @@ const s = StyleSheet.create({
     color: C.primary,
   },
 
-  /* Segmented control */
-  segment: {
-    flexDirection: 'row',
+  /* Swipe slide toggle */
+  slideTrack: {
+    width: 200,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: C.dark,
-    borderRadius: 24,
     padding: 4,
     shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 6,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  segOption: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 20,
+  slideTrackLabel: {
+    position: 'absolute',
+    fontSize: 14,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.6)',
+    letterSpacing: 0.5,
   },
-  segOptionActive: {
+  slideThumb: {
+    position: 'absolute',
+    left: 4,
+    width: 56,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: C.white,
-  },
-  segText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: C.textMuted,
-  },
-  segTextActive: {
-    color: C.dark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
 
   /* ── Waiting card ── */
@@ -455,5 +572,84 @@ const s = StyleSheet.create({
     fontWeight: '800',
     color: C.dark,
     letterSpacing: -0.5,
+  },
+
+  /* ── Blok ekranı ── */
+  blokEkran: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    zIndex: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  blokKart: {
+    backgroundColor: C.white,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    width: '100%',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  blokIkon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  blokBasliq: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#DC2626',
+    marginBottom: 12,
+  },
+  blokSebeb: {
+    fontSize: 15,
+    color: C.dark,
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  blokMuddet: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.textSoft,
+    marginBottom: 16,
+  },
+  blokAlt: {
+    fontSize: 13,
+    color: C.textMuted,
+    textAlign: 'center',
+  },
+
+  /* ── Təsdiq gözlənilir banner ── */
+  tesdiqBanner: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  tesdiqText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
   },
 });
