@@ -39,9 +39,18 @@ export default function AnaScreen({ navigation }) {
     };
   }, []);
 
-  // Re-check active order on screen focus
   useFocusEffect(useCallback(() => {
     api.get('/sifaris/aktiv').then(({ data }) => setAktivSifaris(data || null)).catch(() => {});
+    api.get('/usta/profil').then(async ({ data }) => {
+      if (data) {
+        setUsta(prev => {
+          const yeni = { ...prev, ...data };
+          AsyncStorage.setItem('usta', JSON.stringify(yeni));
+          return yeni;
+        });
+        setOnlayn(data.onlayn || false);
+      }
+    }).catch(() => {});
   }, []));
 
   async function bootstrap() {
@@ -62,7 +71,7 @@ export default function AnaScreen({ navigation }) {
         setOnlayn(u.onlayn || false);
         await AsyncStorage.setItem('usta', JSON.stringify(u));
       }
-    } catch {}
+    } catch (err) { console.warn('Profil y��kləmə xəta:', err); }
 
     // Get current position for map marker
     try {
@@ -82,7 +91,7 @@ export default function AnaScreen({ navigation }) {
     try {
       const { data } = await api.get('/sifaris/aktiv');
       setAktivSifaris(data || null);
-    } catch {}
+    } catch (err) { console.warn(err); }
 
     // Connect socket
     qosul();
