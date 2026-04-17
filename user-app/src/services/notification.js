@@ -1,18 +1,6 @@
 import { Audio } from 'expo-av';
-import * as Notifications from 'expo-notifications';
 
-const mesajSes = require('../../assets/mesaj.wav');
-const bildirisSes = require('../../assets/bildiris.wav');
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
-
-async function sesYukle() {
+async function sesOyna(tip) {
   try {
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
@@ -20,30 +8,17 @@ async function sesYukle() {
       staysActiveInBackground: true,
       shouldDuckAndroid: true,
     });
-  } catch {}
-}
-
-async function sesOyna(tip) {
-  try {
-    await sesYukle();
-    const source = tip === 'bildiris' ? bildirisSes : mesajSes;
+    const source = tip === 'bildiris'
+      ? require('../../assets/bildiris.wav')
+      : require('../../assets/mesaj.wav');
     const { sound } = await Audio.Sound.createAsync(source);
     await sound.playAsync();
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.didJustFinish) sound.unloadAsync();
+    sound.setOnPlaybackStatusUpdate((s) => {
+      if (s.didJustFinish) sound.unloadAsync().catch(() => {});
     });
   } catch (e) {
     console.warn('Səs xəta:', e);
   }
-}
-
-async function lokalBildiris(baslik, metn) {
-  try {
-    await Notifications.scheduleNotificationAsync({
-      content: { title: baslik, body: metn, sound: true },
-      trigger: null,
-    });
-  } catch {}
 }
 
 export async function mesajSesi() {
@@ -56,12 +31,6 @@ export async function bildirisSesi() {
 
 export async function arqaFonBildiris(baslik, metn, tip = 'mesaj') {
   await sesOyna(tip);
-  await lokalBildiris(baslik, metn);
 }
 
-export async function bildirisSisteminiQur() {
-  const { status } = await Notifications.getPermissionsAsync();
-  if (status !== 'granted') {
-    await Notifications.requestPermissionsAsync();
-  }
-}
+export function bildirisSisteminiQur() {}

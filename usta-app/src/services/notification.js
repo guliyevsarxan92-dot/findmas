@@ -1,13 +1,4 @@
 import { Audio } from 'expo-av';
-import * as Notifications from 'expo-notifications';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
 
 async function sesOyna(tip) {
   try {
@@ -30,15 +21,6 @@ async function sesOyna(tip) {
   }
 }
 
-async function lokalBildiris(baslik, metn) {
-  try {
-    await Notifications.scheduleNotificationAsync({
-      content: { title: baslik, body: metn, sound: true },
-      trigger: null,
-    });
-  } catch {}
-}
-
 export async function mesajSesi() {
   await sesOyna('mesaj');
 }
@@ -49,14 +31,6 @@ export async function sifarisSesi() {
 
 export async function arqaFonBildiris(baslik, metn, tip = 'mesaj') {
   await sesOyna(tip);
-  await lokalBildiris(baslik, metn);
 }
 
-export async function bildirisSisteminiQur() {
-  try {
-    const { status } = await Notifications.getPermissionsAsync();
-    if (status !== 'granted') {
-      await Notifications.requestPermissionsAsync();
-    }
-  } catch {}
-}
+export function bildirisSisteminiQur() {}
