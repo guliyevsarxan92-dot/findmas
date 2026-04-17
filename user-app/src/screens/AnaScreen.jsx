@@ -37,10 +37,8 @@ function ikonLib(ikon_lib) {
   return 'ion';
 }
 
-function qiymetMetn(min, max) {
-  if (min && max) return `${min}-${max} ₼`;
-  if (min) return `${min}+ ₼`;
-  if (max) return `${max} ₼-dək`;
+function qiymetMetn(qiymet) {
+  if (qiymet) return `${qiymet} ₼`;
   return '';
 }
 
@@ -200,7 +198,7 @@ export default function AnaScreen({ navigation }) {
     const normalized = {
       ...kat,
       lib: ikonLib(kat.ikon_lib),
-      qiymet: qiymetMetn(kat.qiymet_min, kat.qiymet_max),
+      qiymet: qiymetMetn(kat.qiymet),
     };
     navigation.navigate('SifarisVer', { kateqoriya: normalized });
   }
@@ -324,8 +322,8 @@ export default function AnaScreen({ navigation }) {
                 <Text style={s.serviceName}>{kat.ad}</Text>
                 {kat.altbaslik ? <Text style={s.serviceSubtitle}>{kat.altbaslik}</Text> : null}
               </View>
-              {(kat.qiymet_min || kat.qiymet_max) ? (
-                <Text style={s.servicePrice}>{qiymetMetn(kat.qiymet_min, kat.qiymet_max)}</Text>
+              {kat.qiymet ? (
+                <Text style={s.servicePrice}>{qiymetMetn(kat.qiymet)}</Text>
               ) : null}
             </TouchableOpacity>
           )}

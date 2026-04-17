@@ -6,19 +6,21 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cixis } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import api from '../services/api';
-import C from '../utils/colors';
+import C_STATIC from '../utils/colors';
 
 const MENU = [
   { ikon: 'wallet-outline', ad: 'Balansı artır', rang: '#10B981', nav: 'BalansArtir' },
-  { ikon: 'document-text-outline', ad: 'Sənədlərimi yenilə', rang: C.primary },
-  { ikon: 'notifications-outline', ad: 'Bildiriş parametrləri', rang: '#6366F1' },
-  { ikon: 'shield-checkmark-outline', ad: 'Məxfilik', rang: '#10B981' },
-  { ikon: 'help-circle-outline', ad: 'Yardım & Dəstək', rang: '#F59E0B' },
+  { ikon: 'document-text-outline', ad: 'Sənədlərimi yenilə', rang: C.primary, nav: 'Senedler' },
+  { ikon: 'notifications-outline', ad: 'Bildiriş parametrləri', rang: '#6366F1', nav: 'Bildiris' },
+  { ikon: 'shield-checkmark-outline', ad: 'Məxfilik', rang: '#10B981', nav: 'Mexfilik' },
+  { ikon: 'help-circle-outline', ad: 'Yardım & Dəstək', rang: '#F59E0B', nav: 'Yardim' },
 ];
 
 export default function ProfilScreen({ navigation }) {
   const { setIsLoggedIn } = useAuth();
+  const { isDark, toggle, C } = useTheme();
   const [usta, setUsta] = useState(null);
   const [fotoYuklenir, setFotoYuklenir] = useState(false);
 
@@ -82,12 +84,12 @@ export default function ProfilScreen({ navigation }) {
 
   return (
     <ScrollView
-      style={s.wrap}
+      style={[s.wrap, { backgroundColor: C.softBg }]}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 40 }}
     >
       {/* Header */}
-      <View style={s.header}>
+      <View style={[s.header, { backgroundColor: C.white, borderBottomColor: C.border }]}>
         <View style={s.headerOverlay} />
 
         <TouchableOpacity style={s.avatarWrap} onPress={fotoSec} activeOpacity={0.85}>
@@ -106,7 +108,7 @@ export default function ProfilScreen({ navigation }) {
           </View>
         </TouchableOpacity>
 
-        <Text style={s.ad}>{usta.ad} {usta.soyad}</Text>
+        <Text style={[s.ad, { color: C.dark }]}>{usta.ad} {usta.soyad}</Text>
         <View style={s.katRow}>
           <Ionicons name="construct-outline" size={14} color={C.textMuted} />
           <Text style={s.kateqoriya}>
@@ -127,7 +129,7 @@ export default function ProfilScreen({ navigation }) {
       </View>
 
       {/* Stats row */}
-      <View style={s.statsCard}>
+      <View style={[s.statsCard, { backgroundColor: C.white }]}>
         <View style={s.statItem}>
           <Text style={s.statRəqəm}>{usta.tamamlanan_sifaris || 0}</Text>
           <Text style={s.statAd}>Sifariş</Text>
@@ -162,7 +164,7 @@ export default function ProfilScreen({ navigation }) {
       </TouchableOpacity>
 
       {/* Phone */}
-      <View style={s.telefonKart}>
+      <View style={[s.telefonKart, { backgroundColor: C.white }]}>
         <View style={s.telefonIkon}>
           <Ionicons name="call-outline" size={18} color={C.primary} />
         </View>
@@ -177,11 +179,17 @@ export default function ProfilScreen({ navigation }) {
       </View>
 
       {/* Menu */}
-      <View style={s.menyuKart}>
+      <View style={[s.menyuKart, { backgroundColor: C.white }]}>
         {MENU.map((item, i) => (
           <View key={item.ad}>
             <TouchableOpacity style={s.menItem} activeOpacity={0.7}
-              onPress={() => item.nav && navigation.navigate(item.nav)}>
+              onPress={() => {
+                if (item.nav) {
+                  navigation.navigate(item.nav);
+                } else {
+                  Alert.alert(item.ad, 'Bu bölmə tezliklə əlavə olunacaq.');
+                }
+              }}>
               <View style={[s.menIkonBox, { backgroundColor: item.rang + '15' }]}>
                 <Ionicons name={item.ikon} size={20} color={item.rang} />
               </View>
@@ -192,6 +200,27 @@ export default function ProfilScreen({ navigation }) {
           </View>
         ))}
       </View>
+
+      {/* Dark mode toggle */}
+      <TouchableOpacity
+        style={[s.menyuKart, { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 14, marginBottom: 0 }]}
+        onPress={toggle}
+        activeOpacity={0.7}
+      >
+        <View style={[s.menIkonBox, { backgroundColor: isDark ? '#312e81' + '25' : '#6366F1' + '15' }]}>
+          <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={isDark ? '#FDE68A' : '#6366F1'} />
+        </View>
+        <Text style={[s.menAd, { color: C.dark }]}>{isDark ? 'Gündüz rejimi' : 'Gecə rejimi'}</Text>
+        <View style={[
+          { width: 44, height: 26, borderRadius: 13, justifyContent: 'center', paddingHorizontal: 3 },
+          isDark ? { backgroundColor: C.primary } : { backgroundColor: C.border },
+        ]}>
+          <View style={[
+            { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
+            isDark ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start' },
+          ]} />
+        </View>
+      </TouchableOpacity>
 
       {/* Logout */}
       <TouchableOpacity style={s.cixisBtn} onPress={cixisEt} activeOpacity={0.8}>

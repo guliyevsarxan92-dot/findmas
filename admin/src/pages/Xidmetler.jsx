@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../api'
 
-const BOSH_FORM = { key: '', ad: '', altbaslik: '', ikon: 'construct', ikon_lib: 'Ionicons', rang: '#3b82f6', qiymet_min: '', qiymet_max: '', sira: 0, aktiv: true }
+const BOSH_FORM = { key: '', ad: '', altbaslik: '', ikon: 'construct', ikon_lib: 'Ionicons', rang: '#3b82f6', qiymet: '', sira: 0, aktiv: true }
 
 export default function Xidmetler() {
   const [siyahi, setSiyahi] = useState([])
@@ -42,8 +42,7 @@ export default function Xidmetler() {
       ikon: x.ikon,
       ikon_lib: x.ikon_lib || 'Ionicons',
       rang: x.rang || '#3b82f6',
-      qiymet_min: x.qiymet_min ?? '',
-      qiymet_max: x.qiymet_max ?? '',
+      qiymet: x.qiymet ?? '',
       sira: x.sira ?? 0,
       aktiv: x.aktiv,
     })
@@ -67,8 +66,7 @@ export default function Xidmetler() {
     try {
       const payload = {
         ...form,
-        qiymet_min: form.qiymet_min === '' ? null : Number(form.qiymet_min),
-        qiymet_max: form.qiymet_max === '' ? null : Number(form.qiymet_max),
+        qiymet: form.qiymet === '' ? 0 : Number(form.qiymet),
         sira: Number(form.sira),
       }
       if (redaktə) {
@@ -129,7 +127,7 @@ export default function Xidmetler() {
                 <th>Sıra</th>
                 <th>Ad</th>
                 <th>Key</th>
-                <th>Qiymət aralığı</th>
+                <th>Qiymət</th>
                 <th>İkon</th>
                 <th>Status</th>
                 <th>Əməliyyat</th>
@@ -159,10 +157,8 @@ export default function Xidmetler() {
                     </div>
                   </td>
                   <td><code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, fontSize: 12 }}>{x.key}</code></td>
-                  <td style={{ color: '#475569' }}>
-                    {x.qiymet_min || x.qiymet_max
-                      ? `${x.qiymet_min ?? '?'} – ${x.qiymet_max ?? '?'} ₼`
-                      : '—'}
+                  <td style={{ color: '#475569', fontWeight: 500 }}>
+                    {x.qiymet ? `${x.qiymet} ₼` : '—'}
                   </td>
                   <td style={{ fontSize: 12, color: '#64748b' }}>{x.ikon}</td>
                   <td>
@@ -206,15 +202,9 @@ export default function Xidmetler() {
               <label>Alt başlıq</label>
               <input value={form.altbaslik} onChange={e => inp('altbaslik', e.target.value)} placeholder="Su, boru işləri" />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div className="form-group">
-                <label>Minimum qiymət (₼)</label>
-                <input type="number" value={form.qiymet_min} onChange={e => inp('qiymet_min', e.target.value)} placeholder="10" />
-              </div>
-              <div className="form-group">
-                <label>Maksimum qiymət (₼)</label>
-                <input type="number" value={form.qiymet_max} onChange={e => inp('qiymet_max', e.target.value)} placeholder="200" />
-              </div>
+            <div className="form-group">
+              <label>Qiymət (₼)</label>
+              <input type="number" value={form.qiymet} onChange={e => inp('qiymet', e.target.value)} placeholder="50" />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-group">

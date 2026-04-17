@@ -267,7 +267,7 @@ async function statusDeyis(req, res) {
     // Tamamlandı — xidmət qiymətindən 10% komisyon avtomatik balansdan tutulur
     if (yeni_status === 'tamamlandi') {
       const xidmet = await Xidmet.findOne({ where: { key: sifaris.kateqoriya } });
-      const bazaQiymet = xidmet ? parseFloat(xidmet.qiymet_min || 0) : 0;
+      const bazaQiymet = xidmet ? parseFloat(xidmet.qiymet || xidmet.qiymet_min || 0) : 0;
       const komisyon = parseFloat((bazaQiymet * 0.10).toFixed(2));
 
       await sifaris.update({

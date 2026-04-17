@@ -12,7 +12,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import api, { WS_URL } from '../services/api';
 import { startBackgroundLocation, stopBackgroundLocation } from '../services/backgroundLocation';
-import C from '../utils/colors';
+import { useTheme } from '../context/ThemeContext';
+import C_STATIC from '../utils/colors';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -23,6 +24,7 @@ const TOP_INSET = Platform.OS === 'ios' ? 54 : 36;
 const BAKU = { latitude: 40.4093, longitude: 49.8671 };
 
 export default function AnaScreen({ navigation }) {
+  const { C } = useTheme();
   const [usta, setUsta] = useState(null);
   const [onlayn, setOnlayn] = useState(false);
   const [konum, setKonum] = useState(null);

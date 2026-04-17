@@ -11,6 +11,7 @@ const Xidmet = sequelize.define('Xidmet', {
   rang: { type: DataTypes.STRING(10), defaultValue: '#6366F1' },
   qiymet_min: { type: DataTypes.INTEGER, defaultValue: 5 },
   qiymet_max: { type: DataTypes.INTEGER, defaultValue: 50 },
+  qiymet: { type: DataTypes.INTEGER, defaultValue: 0 },
   aktiv: { type: DataTypes.BOOLEAN, defaultValue: true },
   sira: { type: DataTypes.INTEGER, defaultValue: 0 },
 }, {

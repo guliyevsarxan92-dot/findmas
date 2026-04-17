@@ -3,7 +3,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import C from '../utils/colors';
+import { useTheme } from '../context/ThemeContext';
 
 import GirisScreen from '../screens/GirisScreen';
 import QeydiyyatScreen from '../screens/QeydiyyatScreen';
@@ -14,12 +14,17 @@ import ChatScreen from '../screens/ChatScreen';
 import QazancScreen from '../screens/QazancScreen';
 import ProfilScreen from '../screens/ProfilScreen';
 import BalansArtirScreen from '../screens/BalansArtirScreen';
+import SenedlerScreen from '../screens/SenedlerScreen';
+import BildirisScreen from '../screens/BildirisScreen';
+import MexfilikScreen from '../screens/MexfilikScreen';
+import YardimScreen from '../screens/YardimScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
   const insets = useSafeAreaInsets();
+  const { C } = useTheme();
   const TAB_BAR = {
     tabBarStyle: {
       backgroundColor: C.white,
@@ -83,10 +88,11 @@ function AuthStack() {
 }
 
 export default function Navigation({ isLoggedIn }) {
+  const { isDark, C } = useTheme();
   return (
     <NavigationContainer
       theme={{
-        dark: false,
+        dark: isDark,
         colors: {
           primary: C.primary,
           background: C.softBg,
@@ -121,6 +127,26 @@ export default function Navigation({ isLoggedIn }) {
               name="BalansArtir"
               component={BalansArtirScreen}
               options={{ headerShown: true, title: 'Balansı Artır', headerBackTitle: '', headerStyle: { backgroundColor: C.white }, headerTintColor: C.dark, headerTitleStyle: { fontWeight: '700' } }}
+            />
+            <Stack.Screen
+              name="Senedler"
+              component={SenedlerScreen}
+              options={{ headerShown: true, title: 'Sənədlər', headerBackTitle: '', headerStyle: { backgroundColor: C.white }, headerTintColor: C.dark, headerTitleStyle: { fontWeight: '700' } }}
+            />
+            <Stack.Screen
+              name="Bildiris"
+              component={BildirisScreen}
+              options={{ headerShown: true, title: 'Bildiriş parametrləri', headerBackTitle: '', headerStyle: { backgroundColor: C.white }, headerTintColor: C.dark, headerTitleStyle: { fontWeight: '700' } }}
+            />
+            <Stack.Screen
+              name="Mexfilik"
+              component={MexfilikScreen}
+              options={{ headerShown: true, title: 'Məxfilik', headerBackTitle: '', headerStyle: { backgroundColor: C.white }, headerTintColor: C.dark, headerTitleStyle: { fontWeight: '700' } }}
+            />
+            <Stack.Screen
+              name="Yardim"
+              component={YardimScreen}
+              options={{ headerShown: true, title: 'Yardım & Dəstək', headerBackTitle: '', headerStyle: { backgroundColor: C.white }, headerTintColor: C.dark, headerTitleStyle: { fontWeight: '700' } }}
             />
             <Stack.Screen
               name="Chat"

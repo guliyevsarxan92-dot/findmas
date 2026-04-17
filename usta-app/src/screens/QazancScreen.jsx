@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity }
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
-import C from '../utils/colors';
+import { useTheme } from '../context/ThemeContext';
+import C_STATIC from '../utils/colors';
 
 const KAT_IKONLAR = {
   santexnik: 'water-outline',
@@ -24,6 +25,7 @@ const DOVRELER = [
 ];
 
 export default function QazancScreen() {
+  const { C } = useTheme();
   const [tarixce, setTarixce] = useState([]);
   const [profil, setProfil] = useState(null);
   const [qazanc, setQazanc] = useState(null);
