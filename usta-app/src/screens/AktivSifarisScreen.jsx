@@ -182,7 +182,7 @@ export default function AktivSifarisScreen({ navigation }) {
       const { data } = await api.post(`/sifaris/${sifaris.id}/status`, { yeni_status: 'tamamlandi' });
       setSifaris(prev => ({ ...prev, status: 'tamamlandi', komisyon: data.komisyon }));
     } catch (err) {
-      Alert.alert('Xəta', err.response?.data?.xeta || 'Xəta baş verdi');
+      Alert.alert('Xəta', err?.xeta || 'Xəta baş verdi');
     } finally {
       setBitirilir(false);
     }
@@ -199,7 +199,7 @@ export default function AktivSifarisScreen({ navigation }) {
       setLegvModal(false);
       navigation.goBack();
     } catch (err) {
-      Alert.alert('Xəta', err.response?.data?.xeta || 'Ləğv edilmədi');
+      Alert.alert('Xəta', err?.xeta || 'Ləğv edilmədi');
     } finally {
       setLegvYuklenir(false);
     }
