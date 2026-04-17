@@ -131,6 +131,7 @@ export default function SifarisVerScreen({ route, navigation }) {
         unvan_lat: konum.lat,
         unvan_lng: konum.lng,
         problem_foto: fotolar,
+        alt_secim: kateqoriya.alt_secim || null,
       });
       navigation.replace('UstaAxtarilir', { sifaris_id: data.sifaris_id });
     } catch (err) {

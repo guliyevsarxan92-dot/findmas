@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../api'
 
-const BOSH_FORM = { key: '', ad: '', altbaslik: '', ikon: 'construct', ikon_lib: 'Ionicons', rang: '#3b82f6', qiymet: '', sira: 0, aktiv: true }
+const BOSH_FORM = { key: '', ad: '', altbaslik: '', ikon: 'construct', ikon_lib: 'Ionicons', rang: '#3b82f6', qiymet: '', sira: 0, aktiv: true, alt_xidmetler: [] }
 
 export default function Xidmetler() {
   const [siyahi, setSiyahi] = useState([])
@@ -10,7 +10,7 @@ export default function Xidmetler() {
   const [ugur, setUgur] = useState('')
 
   const [modal, setModal] = useState(false)
-  const [redaktə, setRedakte] = useState(null) // null = yeni, id = redaktə
+  const [redaktə, setRedakte] = useState(null)
   const [form, setForm] = useState(BOSH_FORM)
   const [gondermede, setGondermede] = useState(false)
 
@@ -45,6 +45,7 @@ export default function Xidmetler() {
       qiymet: x.qiymet ?? '',
       sira: x.sira ?? 0,
       aktiv: x.aktiv,
+      alt_xidmetler: x.alt_xidmetler || [],
     })
     setRedakte(x.id)
     setModal(true)
@@ -64,10 +65,12 @@ export default function Xidmetler() {
     }
     setGondermede(true)
     try {
+      const altList = form.alt_xidmetler.filter(a => a.ad.trim())
       const payload = {
         ...form,
         qiymet: form.qiymet === '' ? 0 : Number(form.qiymet),
         sira: Number(form.sira),
+        alt_xidmetler: altList.length > 0 ? altList.map(a => ({ ad: a.ad.trim(), qiymet: Number(a.qiymet) || 0 })) : null,
       }
       if (redaktə) {
         await api.put(`/admin/xidmet/${redaktə}`, payload)
@@ -103,6 +106,22 @@ export default function Xidmetler() {
     setForm(f => ({ ...f, [field]: val }))
   }
 
+  function altElave() {
+    setForm(f => ({ ...f, alt_xidmetler: [...f.alt_xidmetler, { ad: '', qiymet: '' }] }))
+  }
+
+  function altDeyis(index, field, val) {
+    setForm(f => {
+      const yeni = [...f.alt_xidmetler]
+      yeni[index] = { ...yeni[index], [field]: val }
+      return { ...f, alt_xidmetler: yeni }
+    })
+  }
+
+  function altSil(index) {
+    setForm(f => ({ ...f, alt_xidmetler: f.alt_xidmetler.filter((_, i) => i !== index) }))
+  }
+
   return (
     <>
       <h1>Xidmətlər</h1>
@@ -128,7 +147,7 @@ export default function Xidmetler() {
                 <th>Ad</th>
                 <th>Key</th>
                 <th>Qiymət</th>
-                <th>İkon</th>
+                <th>Alt xidmətlər</th>
                 <th>Status</th>
                 <th>Əməliyyat</th>
               </tr>
@@ -160,7 +179,22 @@ export default function Xidmetler() {
                   <td style={{ color: '#475569', fontWeight: 500 }}>
                     {x.qiymet ? `${x.qiymet} ₼` : '—'}
                   </td>
-                  <td style={{ fontSize: 12, color: '#64748b' }}>{x.ikon}</td>
+                  <td>
+                    {x.alt_xidmetler && x.alt_xidmetler.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {x.alt_xidmetler.map((alt, i) => (
+                          <span key={i} style={{
+                            fontSize: 12, background: '#f1f5f9', padding: '2px 8px',
+                            borderRadius: 6, display: 'inline-block'
+                          }}>
+                            {alt.ad} — <b>{alt.qiymet} ₼</b>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ color: '#cbd5e1', fontSize: 13 }}>—</span>
+                    )}
+                  </td>
                   <td>
                     <span className={`badge ${x.aktiv ? 'badge-green' : 'badge-gray'}`}>
                       {x.aktiv ? 'Aktiv' : 'Deaktiv'}
@@ -186,7 +220,7 @@ export default function Xidmetler() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
           <div style={{
-            background: '#fff', borderRadius: 14, padding: 28, width: 480, maxHeight: '90vh', overflowY: 'auto'
+            background: '#fff', borderRadius: 14, padding: 28, width: 520, maxHeight: '90vh', overflowY: 'auto'
           }}>
             <h2 style={{ marginBottom: 20, fontSize: 18 }}>{redaktə ? 'Xidməti Düzəlt' : 'Yeni Xidmət'}</h2>
 
@@ -203,8 +237,11 @@ export default function Xidmetler() {
               <input value={form.altbaslik} onChange={e => inp('altbaslik', e.target.value)} placeholder="Su, boru işləri" />
             </div>
             <div className="form-group">
-              <label>Qiymət (₼)</label>
+              <label>Əsas qiymət (₼)</label>
               <input type="number" value={form.qiymet} onChange={e => inp('qiymet', e.target.value)} placeholder="50" />
+              {form.alt_xidmetler.length > 0 && (
+                <small style={{ color: '#94a3b8', fontSize: 11 }}>Alt xidmətlər varsa, hər birinin öz qiyməti istifadə olunur</small>
+              )}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-group">
@@ -235,7 +272,64 @@ export default function Xidmetler() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+            {/* Alt xidmətlər bölməsi */}
+            <div style={{
+              marginTop: 16, padding: 16, background: '#f8fafc',
+              borderRadius: 10, border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <label style={{ fontWeight: 600, fontSize: 14, margin: 0 }}>Alt xidmətlər</label>
+                <button
+                  type="button"
+                  className="btn btn-blue"
+                  style={{ padding: '6px 14px', fontSize: 13 }}
+                  onClick={altElave}
+                >
+                  + Əlavə et
+                </button>
+              </div>
+
+              {form.alt_xidmetler.length === 0 && (
+                <p style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', margin: '8px 0' }}>
+                  Alt xidmət yoxdur. Əlavə etmək üçün yuxarıdakı düyməyə basın.
+                </p>
+              )}
+
+              {form.alt_xidmetler.map((alt, i) => (
+                <div key={i} style={{
+                  display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8,
+                  background: '#fff', padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0'
+                }}>
+                  <input
+                    value={alt.ad}
+                    onChange={e => altDeyis(i, 'ad', e.target.value)}
+                    placeholder="Alt xidmət adı"
+                    style={{ flex: 2, padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14 }}
+                  />
+                  <input
+                    type="number"
+                    value={alt.qiymet}
+                    onChange={e => altDeyis(i, 'qiymet', e.target.value)}
+                    placeholder="Qiymət"
+                    style={{ flex: 1, padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14 }}
+                  />
+                  <span style={{ fontSize: 14, color: '#64748b' }}>₼</span>
+                  <button
+                    type="button"
+                    onClick={() => altSil(i)}
+                    style={{
+                      background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+                      padding: '6px 10px', cursor: 'pointer', color: '#ef4444', fontSize: 16,
+                      lineHeight: 1
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
               <button className="btn btn-green" onClick={gondər} disabled={gondermede} style={{ flex: 1 }}>
                 {gondermede ? 'Saxlanır...' : 'Saxla'}
               </button>

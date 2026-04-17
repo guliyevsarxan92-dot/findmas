@@ -108,6 +108,10 @@ const Sifaris = sequelize.define('Sifaris', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  alt_secim: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
   // Ləğv səbəbi
   legv_sebeb: {
     type: DataTypes.STRING,

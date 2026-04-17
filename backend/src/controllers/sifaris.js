@@ -111,7 +111,7 @@ async function yenidenUstaAxtarAdaptiv(sifarisId, io) {
 // POST /api/sifaris  — yeni sifariş ver
 async function yeniSifaris(req, res) {
   try {
-    const { kateqoriya, problem_tesvirr, unvan_metn, unvan_lat, unvan_lng, problem_foto } = req.body;
+    const { kateqoriya, problem_tesvirr, unvan_metn, unvan_lat, unvan_lng, problem_foto, alt_secim } = req.body;
 
     // Aktiv sifarişi varmı?
     const aktiv = await Sifaris.findOne({
@@ -130,6 +130,7 @@ async function yeniSifaris(req, res) {
       unvan_lat,
       unvan_lng,
       problem_foto: problem_foto || [],
+      alt_secim: alt_secim || null,
     });
 
     // Fair matching: top 3 usta seç
@@ -267,7 +268,11 @@ async function statusDeyis(req, res) {
     // Tamamlandı — xidmət qiymətindən 10% komisyon avtomatik balansdan tutulur
     if (yeni_status === 'tamamlandi') {
       const xidmet = await Xidmet.findOne({ where: { key: sifaris.kateqoriya } });
-      const bazaQiymet = xidmet ? parseFloat(xidmet.qiymet || xidmet.qiymet_min || 0) : 0;
+      let bazaQiymet = xidmet ? parseFloat(xidmet.qiymet || xidmet.qiymet_min || 0) : 0;
+      if (sifaris.alt_secim && xidmet?.alt_xidmetler) {
+        const alt = xidmet.alt_xidmetler.find(a => a.ad === sifaris.alt_secim);
+        if (alt) bazaQiymet = parseFloat(alt.qiymet || 0);
+      }
       const komisyon = parseFloat((bazaQiymet * 0.10).toFixed(2));
 
       await sifaris.update({

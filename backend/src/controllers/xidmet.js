@@ -17,8 +17,8 @@ async function siyahi(req, res) {
 // POST /api/admin/xidmet
 async function yarat(req, res) {
   try {
-    const { key, ad, altbaslik, ikon, ikon_lib, rang, qiymet, sira } = req.body;
-    const x = await Xidmet.create({ key, ad, altbaslik, ikon, ikon_lib, rang, qiymet, sira });
+    const { key, ad, altbaslik, ikon, ikon_lib, rang, qiymet, sira, alt_xidmetler } = req.body;
+    const x = await Xidmet.create({ key, ad, altbaslik, ikon, ikon_lib, rang, qiymet, sira, alt_xidmetler });
     res.status(201).json(x);
   } catch (err) {
     res.status(500).json({ xeta: err.message });
