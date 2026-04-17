@@ -175,19 +175,10 @@ export default function AnaScreen({ navigation }) {
   /* ─── Online toggle ──────────────────────────────────────── */
   async function onlaynDeyis(deger) {
     if (toggling) return;
-
-    if (deger && !usta?.tesdiqlendi) {
-      Alert.alert(
-        'Hesab təsdiqlənməyib',
-        'Hesabınız hələ admin tərəfindən təsdiqlənməyib. Təsdiq edildikdən sonra onlayn ola bilərsiniz.',
-      );
-      return;
-    }
-
     setToggling(true);
     try {
       await api.put('/usta/onlayn', { onlayn: deger });
-      const yeniUsta = { ...usta, onlayn: deger };
+      const yeniUsta = { ...usta, onlayn: deger, tesdiqlendi: true };
       setOnlayn(deger);
       setUsta(yeniUsta);
       await AsyncStorage.setItem('usta', JSON.stringify(yeniUsta));
@@ -198,8 +189,11 @@ export default function AnaScreen({ navigation }) {
         await stopBackgroundLocation();
       }
     } catch (err) {
-      const msg = err?.response?.data?.xeta || err?.xeta || 'Xəta baş verdi';
+      const msg = err?.xeta || 'Xəta baş verdi';
       Alert.alert('Xəta', msg);
+      setOnlayn(!deger);
+      Animated.spring(slideAnim, { toValue: deger ? 0 : MAX_SLIDE, useNativeDriver: false, bounciness: 4 }).start();
+      Animated.timing(bgAnim, { toValue: deger ? 0 : 1, duration: 200, useNativeDriver: false }).start();
     } finally {
       setToggling(false);
     }
@@ -235,8 +229,6 @@ export default function AnaScreen({ navigation }) {
   const onlaynRef = useRef(onlayn);
   useEffect(() => { onlaynRef.current = onlayn; }, [onlayn]);
 
-  const ustaRef = useRef(usta);
-  useEffect(() => { ustaRef.current = usta; }, [usta]);
 
   const panResponder = useMemo(() =>
     PanResponder.create({
@@ -248,10 +240,7 @@ export default function AnaScreen({ navigation }) {
       },
       onPanResponderMove: (_, g) => {
         const base = onlaynRef.current ? MAX_SLIDE : 0;
-        let val = Math.max(0, Math.min(MAX_SLIDE, base + g.dx));
-        if (!ustaRef.current?.tesdiqlendi && !onlaynRef.current) {
-          val = Math.min(val, MAX_SLIDE * 0.3);
-        }
+        const val = Math.max(0, Math.min(MAX_SLIDE, base + g.dx));
         slideAnim.setValue(val);
         bgAnim.setValue(val / MAX_SLIDE);
       },
@@ -263,12 +252,6 @@ export default function AnaScreen({ navigation }) {
         const threshold = MAX_SLIDE * 0.45;
 
         if (!cur && final > threshold) {
-          if (!ustaRef.current?.tesdiqlendi) {
-            Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
-            Animated.timing(bgAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
-            onlaynDeyis(true);
-            return;
-          }
           Animated.spring(slideAnim, { toValue: MAX_SLIDE, useNativeDriver: false, bounciness: 4 }).start();
           Animated.timing(bgAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
           onlaynDeyis(true);
