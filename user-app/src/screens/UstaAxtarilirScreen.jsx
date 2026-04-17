@@ -13,6 +13,7 @@ import MapView from 'react-native-maps';
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { WS_URL } from '../services/api';
+import { bildirisSesi } from '../services/notification';
 import C from '../utils/colors';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -56,6 +57,7 @@ export default function UstaAxtarilirScreen({ route, navigation }) {
     socket.on('sifaris_qebul', ({ usta }) => {
       socket.disconnect();
       Vibration.vibrate([0, 200, 100, 200]);
+      bildirisSesi();
       Alert.alert(
         'Usta tapıldı!',
         `${usta.ad} ${usta.soyad} sifarişinizi qəbul etdi.`,

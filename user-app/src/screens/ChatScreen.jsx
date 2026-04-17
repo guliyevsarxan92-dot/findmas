@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { WS_URL } from '../services/api';
+import { mesajSesi } from '../services/notification';
 import C from '../utils/colors';
 
 export default function ChatScreen({ route }) {
@@ -37,6 +38,7 @@ export default function ChatScreen({ route }) {
     socketRef.current = socket;
     socket.on('yeni_mesaj', ({ mesaj }) => {
       setMesajlar(m => [...m, mesaj]);
+      mesajSesi();
     });
   }
 

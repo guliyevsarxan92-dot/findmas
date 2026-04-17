@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import api, { WS_URL } from '../services/api';
 import { startBackgroundLocation, stopBackgroundLocation } from '../services/backgroundLocation';
+import { mesajSesi, sifarisSesi, arqaFonBildiris, bildirisSisteminiQur } from '../services/notification';
 import { useTheme } from '../context/ThemeContext';
 import C_STATIC from '../utils/colors';
 
@@ -95,6 +96,9 @@ export default function AnaScreen({ navigation }) {
       setAktivSifaris(data || null);
     } catch (err) { console.warn(err); }
 
+    // Bildiriş icazəsi
+    bildirisSisteminiQur();
+
     // Connect socket
     qosul();
   }
@@ -107,6 +111,7 @@ export default function AnaScreen({ navigation }) {
 
     socket.on('yeni_sifaris', async (sifaris) => {
       Vibration.vibrate([0, 500, 200, 500, 200, 500, 200, 500]);
+      arqaFonBildiris('Yeni sifariş!', sifaris.kateqoriya || 'Yeni sifariş gəldi', 'sifaris');
       navigation.navigate('YeniSifaris', { sifaris });
     });
 
@@ -123,9 +128,9 @@ export default function AnaScreen({ navigation }) {
       Alert.alert('Sifariş ləğv edildi', mesaj || 'Müştəri sifarişi ləğv etdi.');
     });
 
-    // Yeni mesaj bildirişi
     socket.on('yeni_mesaj', () => {
       Vibration.vibrate(200);
+      arqaFonBildiris('Yeni mesaj', 'Müştəridən mesaj gəldi', 'mesaj');
     });
 
     socket.on('hesab_tesdiqlendi', async ({ mesaj }) => {

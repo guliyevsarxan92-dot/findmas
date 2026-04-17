@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { WS_URL } from '../services/api';
+import { mesajSesi, bildirisSesi } from '../services/notification';
 import C from '../utils/colors';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -83,6 +84,7 @@ export default function AktivSifarisScreen({ navigation }) {
 
       socket.on('yeni_mesaj', () => {
         Vibration.vibrate(200);
+        mesajSesi();
       });
 
       socket.on('usta_yeniden_axtarilir', ({ sifaris_id, mesaj }) => {
