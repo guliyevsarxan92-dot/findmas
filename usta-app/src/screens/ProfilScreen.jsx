@@ -8,7 +8,7 @@ import { cixis } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../services/api';
-import C_STATIC from '../utils/colors';
+import C from '../utils/colors';
 
 const MENU = [
   { ikon: 'wallet-outline', ad: 'Balansı artır', rang: '#10B981', nav: 'BalansArtir' },
@@ -20,7 +20,7 @@ const MENU = [
 
 export default function ProfilScreen({ navigation }) {
   const { setIsLoggedIn } = useAuth();
-  const { isDark, toggle, C } = useTheme();
+  const { isDark, toggle, C: TC } = useTheme();
   const [usta, setUsta] = useState(null);
   const [fotoYuklenir, setFotoYuklenir] = useState(false);
 

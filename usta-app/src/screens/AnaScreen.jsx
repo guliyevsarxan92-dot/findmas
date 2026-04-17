@@ -14,7 +14,7 @@ import api, { WS_URL } from '../services/api';
 import { startBackgroundLocation, stopBackgroundLocation } from '../services/backgroundLocation';
 import { mesajSesi, sifarisSesi, arqaFonBildiris, bildirisSisteminiQur } from '../services/notification';
 import { useTheme } from '../context/ThemeContext';
-import C_STATIC from '../utils/colors';
+import C from '../utils/colors';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -25,7 +25,7 @@ const TOP_INSET = Platform.OS === 'ios' ? 54 : 36;
 const BAKU = { latitude: 40.4093, longitude: 49.8671 };
 
 export default function AnaScreen({ navigation }) {
-  const { C } = useTheme();
+  const { C: TC } = useTheme();
   const [usta, setUsta] = useState(null);
   const [onlayn, setOnlayn] = useState(false);
   const [konum, setKonum] = useState(null);
