@@ -9,9 +9,8 @@ import {
   StatusBar,
   Platform,
   Animated,
-  PanResponder,
 } from 'react-native';
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView from 'react-native-maps';
@@ -72,72 +71,21 @@ export default function AnaScreen({ navigation }) {
   const [aktivSifaris, setAktivSifaris] = useState(null);
   const [mapRegion, setMapRegion] = useState(BAKU_REGION);
   const [xidmetler, setXidmetler] = useState([]);
-  const [sheetSnap, setSheetSnap] = useState('mid');
+  const [expanded, setExpanded] = useState(false);
   const [seher, setSeher] = useState(SEHERLER[0]);
   const [seherMenu, setSeherMenu] = useState(false);
 
-  // Bottom sheet draggable state
   const translateY = useRef(new Animated.Value(SNAP_MID)).current;
-  const lastY = useRef(SNAP_MID);
-  const flatListAtTop = useRef(true);
-  const flatListRef = useRef(null);
 
-  const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => {
-      if (Math.abs(g.dy) < 4) return false;
-      // Collapsed — hər zaman PanResponder tutsun
-      if (lastY.current === SNAP_COLLAPSED) return true;
-      // Mid — hər istiqamətdə PanResponder tutsun (yuxarı=expand, aşağı=collapse)
-      if (lastY.current === SNAP_MID) return true;
-      // Expanded — yalnız FlatList yuxarıdadırsa VƏ aşağı sürüşdürürsə PanResponder tutsun
-      if (flatListAtTop.current && g.dy > 0) return true;
-      return false;
-    },
-    onPanResponderGrant: () => {
-      translateY.setOffset(lastY.current);
-      translateY.setValue(0);
-    },
-    onPanResponderMove: (_, g) => {
-      const next = g.dy;
-      // Clamp hüdudlar daxilində
-      if (lastY.current + next < SNAP_EXPANDED) {
-        translateY.setValue(SNAP_EXPANDED - lastY.current);
-      } else if (lastY.current + next > SNAP_COLLAPSED) {
-        translateY.setValue(SNAP_COLLAPSED - lastY.current);
-      } else {
-        translateY.setValue(next);
-      }
-    },
-    onPanResponderRelease: (_, g) => {
-      translateY.flattenOffset();
-      const current = lastY.current + g.dy;
-      const velocity = g.vy;
-      let target;
-
-      if (velocity > 0.8) {
-        // Sürətli aşağı sürüşdürmə
-        target = current > SNAP_MID ? SNAP_COLLAPSED : SNAP_MID;
-      } else if (velocity < -0.8) {
-        // Sürətli yuxarı sürüşdürmə
-        target = current < SNAP_MID ? SNAP_EXPANDED : SNAP_MID;
-      } else {
-        // Ən yaxın snap nöqtəsi
-        const points = [SNAP_EXPANDED, SNAP_MID, SNAP_COLLAPSED];
-        target = points.reduce((a, b) =>
-          Math.abs(b - current) < Math.abs(a - current) ? b : a
-        );
-      }
-
-      lastY.current = target;
-      setSheetSnap(target === SNAP_EXPANDED ? 'expanded' : target === SNAP_MID ? 'mid' : 'collapsed');
-      Animated.spring(translateY, {
-        toValue: target,
-        useNativeDriver: true,
-        bounciness: 4,
-        speed: 14,
-      }).start();
-    },
-  }), []);
+  function snapTo(target) {
+    setExpanded(target === SNAP_EXPANDED);
+    Animated.spring(translateY, {
+      toValue: target,
+      useNativeDriver: true,
+      bounciness: 4,
+      speed: 14,
+    }).start();
+  }
 
   useEffect(() => {
     AsyncStorage.getItem('user').then(r => r && setUser(JSON.parse(r)));
@@ -272,42 +220,35 @@ export default function AnaScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
-      {/* BOTTOM SHEET — draggable */}
+      {/* BOTTOM SHEET */}
       <Animated.View style={[s.bottomSheet, { transform: [{ translateY }] }]}>
-        {/* Drag area: handle + başlıq */}
-        <View {...panResponder.panHandlers} style={s.dragArea}>
+        {/* Handle — tap to toggle */}
+        <TouchableOpacity
+          style={s.dragArea}
+          activeOpacity={0.9}
+          onPress={() => snapTo(expanded ? SNAP_MID : SNAP_EXPANDED)}
+        >
           <View style={s.handle} />
-          <Text style={s.sheetTitle}>Xidmət seçin</Text>
-        </View>
+          <View style={s.sheetTitleRow}>
+            <Text style={s.sheetTitle}>Xidmət seçin</Text>
+            <Ionicons
+              name={expanded ? 'chevron-down' : 'chevron-up'}
+              size={20}
+              color={C.textSoft}
+            />
+          </View>
+        </TouchableOpacity>
 
         <FlatList
-          ref={flatListRef}
           style={{ flex: 1 }}
           data={xidmetler}
           keyExtractor={(item) => item.key}
           showsVerticalScrollIndicator={true}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={s.listContent}
-          bounces={sheetSnap === 'expanded'}
-          scrollEnabled={sheetSnap === 'expanded'}
-          overScrollMode="always"
+          scrollEnabled={true}
+          bounces={true}
           nestedScrollEnabled={true}
-          onScroll={(e) => {
-            flatListAtTop.current = e.nativeEvent.contentOffset.y <= 0;
-          }}
-          scrollEventThrottle={16}
-          onTouchStart={() => {
-            if (sheetSnap === 'mid') {
-              lastY.current = SNAP_EXPANDED;
-              setSheetSnap('expanded');
-              Animated.spring(translateY, {
-                toValue: SNAP_EXPANDED,
-                useNativeDriver: true,
-                bounciness: 4,
-                speed: 14,
-              }).start();
-            }
-          }}
           ItemSeparatorComponent={() => <View style={s.separator} />}
           renderItem={({ item: kat }) => (
             <TouchableOpacity
@@ -481,6 +422,12 @@ const s = StyleSheet.create({
   },
   dragArea: {
     paddingBottom: 8,
+    paddingHorizontal: 20,
+  },
+  sheetTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   handle: {
     width: 44,
@@ -494,7 +441,6 @@ const s = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     color: C.dark,
-    paddingHorizontal: 20,
     marginBottom: 8,
     letterSpacing: -0.3,
   },
