@@ -17,8 +17,8 @@ async function siyahi(req, res) {
 // POST /api/admin/xidmet
 async function yarat(req, res) {
   try {
-    const { key, ad, altbaslik, ikon, ikon_lib, rang, qiymet_min, qiymet_max, sira } = req.body;
-    const x = await Xidmet.create({ key, ad, altbaslik, ikon, ikon_lib, rang, qiymet_min, qiymet_max, sira });
+    const { key, ad, altbaslik, ikon, ikon_lib, rang, qiymet, sira } = req.body;
+    const x = await Xidmet.create({ key, ad, altbaslik, ikon, ikon_lib, rang, qiymet, sira });
     res.status(201).json(x);
   } catch (err) {
     res.status(500).json({ xeta: err.message });
@@ -37,10 +37,10 @@ async function yenile(req, res) {
   }
 }
 
-// DELETE /api/admin/xidmet/:id  (deactivate)
+// DELETE /api/admin/xidmet/:id
 async function sil(req, res) {
   try {
-    await Xidmet.update({ aktiv: false }, { where: { id: req.params.id } });
+    await Xidmet.destroy({ where: { id: req.params.id } });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ xeta: err.message });
