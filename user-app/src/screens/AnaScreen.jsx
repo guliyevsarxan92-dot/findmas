@@ -9,8 +9,9 @@ import {
   StatusBar,
   Platform,
   Animated,
+  PanResponder,
 } from 'react-native';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView from 'react-native-maps';
@@ -22,14 +23,10 @@ import C from '../utils/colors';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Bottom sheet snap points (translateY dəyərləri)
-// Tab bar ~80px, başlıq strip üçün 110px görünür saxla
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.9;
-const COLLAPSED_VISIBLE = 110;              // collapsed olduqda üstdə görünəcək strip (tab bardan yuxarı)
 const TAB_BAR_HEIGHT = 80;
-const SNAP_EXPANDED = 0;                                                         // tamamı açıq
-const SNAP_MID = SCREEN_HEIGHT * 0.38;                                           // orta
-const SNAP_COLLAPSED = SHEET_HEIGHT - COLLAPSED_VISIBLE - TAB_BAR_HEIGHT; // başlıq strip qalır tab bardan yuxarı
+const SNAP_TOP = SCREEN_HEIGHT * 0.08;
+const SNAP_MID = SCREEN_HEIGHT * 0.55;
+const SNAP_BOTTOM = SCREEN_HEIGHT - TAB_BAR_HEIGHT - 120;
 
 function ikonLib(ikon_lib) {
   if (ikon_lib === 'MaterialCommunityIcons' || ikon_lib === 'mci') return 'mci';
@@ -71,21 +68,65 @@ export default function AnaScreen({ navigation }) {
   const [aktivSifaris, setAktivSifaris] = useState(null);
   const [mapRegion, setMapRegion] = useState(BAKU_REGION);
   const [xidmetler, setXidmetler] = useState([]);
-  const [expanded, setExpanded] = useState(false);
   const [seher, setSeher] = useState(SEHERLER[0]);
   const [seherMenu, setSeherMenu] = useState(false);
 
-  const translateY = useRef(new Animated.Value(SNAP_MID)).current;
+  // Sheet position — starts at mid
+  const sheetY = useRef(new Animated.Value(SNAP_MID)).current;
+  const lastSnap = useRef(SNAP_MID);
 
-  function snapTo(target) {
-    setExpanded(target === SNAP_EXPANDED);
-    Animated.spring(translateY, {
+  function animateTo(target) {
+    lastSnap.current = target;
+    Animated.spring(sheetY, {
       toValue: target,
-      useNativeDriver: true,
-      bounciness: 4,
-      speed: 14,
+      useNativeDriver: false,
+      bounciness: 3,
+      speed: 16,
     }).start();
   }
+
+  // PanResponder — ONLY for the handle/title drag area
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+    onPanResponderGrant: () => {
+      sheetY.stopAnimation((val) => {
+        lastSnap.current = val;
+        sheetY.setOffset(val);
+        sheetY.setValue(0);
+      });
+    },
+    onPanResponderMove: (_, g) => {
+      const raw = lastSnap.current + g.dy;
+      const clamped = Math.max(SNAP_TOP, Math.min(SNAP_BOTTOM, raw));
+      sheetY.setValue(clamped - lastSnap.current);
+    },
+    onPanResponderRelease: (_, g) => {
+      sheetY.flattenOffset();
+      const current = lastSnap.current + g.dy;
+      const vy = g.vy;
+
+      let target;
+      if (vy > 0.5) {
+        target = current < SNAP_MID ? SNAP_MID : SNAP_BOTTOM;
+      } else if (vy < -0.5) {
+        target = current > SNAP_MID ? SNAP_MID : SNAP_TOP;
+      } else {
+        const snaps = [SNAP_TOP, SNAP_MID, SNAP_BOTTOM];
+        target = snaps.reduce((a, b) =>
+          Math.abs(b - current) < Math.abs(a - current) ? b : a
+        );
+      }
+
+      lastSnap.current = target;
+      Animated.spring(sheetY, {
+        toValue: target,
+        useNativeDriver: false,
+        bounciness: 3,
+        speed: 16,
+      }).start();
+    },
+  }), []);
 
   useEffect(() => {
     AsyncStorage.getItem('user').then(r => r && setUser(JSON.parse(r)));
@@ -142,7 +183,6 @@ export default function AnaScreen({ navigation }) {
       ]);
       return;
     }
-    // API məlumatını SifarisVerScreen-in gözlədiyi formata çevir
     const normalized = {
       ...kat,
       lib: ikonLib(kat.ikon_lib),
@@ -150,6 +190,13 @@ export default function AnaScreen({ navigation }) {
     };
     navigation.navigate('SifarisVer', { kateqoriya: normalized });
   }
+
+  // Sheet height derived from sheetY
+  const sheetHeight = sheetY.interpolate({
+    inputRange: [SNAP_TOP, SNAP_BOTTOM],
+    outputRange: [SCREEN_HEIGHT - SNAP_TOP, SCREEN_HEIGHT - SNAP_BOTTOM],
+    extrapolate: 'clamp',
+  });
 
   return (
     <View style={s.container}>
@@ -166,7 +213,7 @@ export default function AnaScreen({ navigation }) {
         customMapStyle={LIGHT_MAP_STYLE}
       />
 
-      {/* TOP CARD — şəhər seçimi */}
+      {/* TOP CARD */}
       <View style={s.topCard}>
         <TouchableOpacity
           style={s.locationPill}
@@ -179,7 +226,6 @@ export default function AnaScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Şəhər dropdown */}
       {seherMenu && (
         <View style={s.seherDropdown}>
           {SEHERLER.map((sh) => (
@@ -220,25 +266,16 @@ export default function AnaScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
-      {/* BOTTOM SHEET */}
-      <Animated.View style={[s.bottomSheet, { transform: [{ translateY }] }]}>
-        {/* Handle — tap to toggle */}
-        <TouchableOpacity
-          style={s.dragArea}
-          activeOpacity={0.9}
-          onPress={() => snapTo(expanded ? SNAP_MID : SNAP_EXPANDED)}
-        >
-          <View style={s.handle} />
-          <View style={s.sheetTitleRow}>
-            <Text style={s.sheetTitle}>Xidmət seçin</Text>
-            <Ionicons
-              name={expanded ? 'chevron-down' : 'chevron-up'}
-              size={20}
-              color={C.textSoft}
-            />
-          </View>
-        </TouchableOpacity>
+      {/* BOTTOM SHEET — position: absolute, top = sheetY */}
+      <Animated.View style={[s.bottomSheet, { top: sheetY, height: sheetHeight }]}>
 
+        {/* DRAG HANDLE — PanResponder ONLY here */}
+        <View {...panResponder.panHandlers} style={s.dragArea}>
+          <View style={s.handle} />
+          <Text style={s.sheetTitle}>Xidmət seçin</Text>
+        </View>
+
+        {/* SERVICE LIST — always scrollable, no gesture conflict */}
         <FlatList
           style={{ flex: 1 }}
           data={xidmetler}
@@ -309,6 +346,7 @@ const s = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
+    zIndex: 50,
   },
   locationPill: {
     flexDirection: 'row',
@@ -363,7 +401,7 @@ const s = StyleSheet.create({
   /* ── ACTIVE ORDER BANNER ── */
   aktivBanner: {
     position: 'absolute',
-    bottom: SCREEN_HEIGHT * 0.65 + 12,
+    bottom: SCREEN_HEIGHT * 0.5 + 12,
     left: 16,
     right: 16,
     backgroundColor: C.primary,
@@ -406,28 +444,22 @@ const s = StyleSheet.create({
   /* ── BOTTOM SHEET ── */
   bottomSheet: {
     position: 'absolute',
-    top: SCREEN_HEIGHT * 0.1,
     left: 0,
     right: 0,
-    height: SHEET_HEIGHT,
     backgroundColor: C.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingTop: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.15,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: -4 },
     elevation: 16,
+    overflow: 'hidden',
   },
   dragArea: {
-    paddingBottom: 8,
+    paddingTop: 14,
+    paddingBottom: 10,
     paddingHorizontal: 20,
-  },
-  sheetTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   handle: {
     width: 44,
@@ -435,18 +467,17 @@ const s = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: C.border,
     alignSelf: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   sheetTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: C.dark,
-    marginBottom: 8,
     letterSpacing: -0.3,
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 120,
   },
 
   /* ── SERVICE ROW ── */
