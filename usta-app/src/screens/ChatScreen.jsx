@@ -4,6 +4,7 @@ import {
   TouchableOpacity, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { WS_URL } from '../services/api';
@@ -12,6 +13,7 @@ import C from '../utils/colors';
 
 export default function ChatScreen({ route }) {
   const { sifaris_id } = route.params;
+  const insets = useSafeAreaInsets();
   const [mesajlar, setMesajlar] = useState([]);
   const [metn, setMetn] = useState('');
   const listRef = useRef(null);
@@ -93,7 +95,7 @@ export default function ChatScreen({ route }) {
           </View>
         }
       />
-      <View style={s.inputBar}>
+      <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
         <TextInput
           style={s.textInput}
           value={metn}
@@ -174,7 +176,6 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: C.border,
     alignItems: 'flex-end',
-    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
   },
   textInput: {
     flex: 1,

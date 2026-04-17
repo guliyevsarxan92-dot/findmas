@@ -19,7 +19,7 @@ import C from '../utils/colors';
 const { width: SW } = Dimensions.get('window');
 
 // Safe area top: iOS uses notch offset, Android uses status bar height
-const TOP_INSET = Platform.OS === 'ios' ? 54 : 36;
+const TOP_INSET = Platform.OS === 'ios' ? 54 : 44;
 
 // Baku centre coordinates
 const BAKU = { latitude: 40.4093, longitude: 49.8671 };
