@@ -28,7 +28,7 @@ export default function ChatScreen({ route }) {
     try {
       const { data } = await api.get(`/mesaj/${sifaris_id}`);
       setMesajlar(data);
-    } catch {}
+    } catch (err) { console.warn(err); }
   }
 
   async function qosul() {
@@ -48,7 +48,7 @@ export default function ChatScreen({ route }) {
       const { data } = await api.post(`/mesaj/${sifaris_id}`, { metn: metinKopi });
       setMesajlar(m => [...m, data]);
       setTimeout(() => listRef.current?.scrollToEnd(), 100);
-    } catch {}
+    } catch (err) { console.warn(err); }
   }
 
   function renderMesaj({ item }) {

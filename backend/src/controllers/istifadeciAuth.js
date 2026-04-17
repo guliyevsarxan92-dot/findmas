@@ -1,6 +1,17 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path');
+const multer = require('multer');
 const { User } = require('../models');
+
+const storage = multer.diskStorage({
+  destination: path.join(__dirname, '..', '..', 'uploads'),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.jpg';
+    cb(null, `user_${req.istifadeci.id}_${Date.now()}${ext}`);
+  },
+});
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 function tokenYarat(user) {
   return jwt.sign(
@@ -87,15 +98,25 @@ async function profilYenile(req, res) {
 }
 
 // PUT /api/istifadeci/profil-foto
+const profilFotoMiddleware = upload.single('foto');
 async function profilFotoYenile(req, res) {
-  try {
-    const { foto } = req.body;
-    if (!foto) return res.status(400).json({ xeta: 'Foto göndərilməyib' });
-    await User.update({ foto }, { where: { id: req.istifadeci.id } });
-    res.json({ ok: true, foto });
-  } catch (err) {
-    res.status(500).json({ xeta: err.message });
-  }
+  profilFotoMiddleware(req, res, async (err) => {
+    if (err) return res.status(400).json({ xeta: err.message });
+    try {
+      let foto;
+      if (req.file) {
+        foto = `/uploads/${req.file.filename}`;
+      } else if (req.body.foto) {
+        foto = req.body.foto;
+      } else {
+        return res.status(400).json({ xeta: 'Foto göndərilməyib' });
+      }
+      await User.update({ foto }, { where: { id: req.istifadeci.id } });
+      res.json({ ok: true, foto });
+    } catch (err) {
+      res.status(500).json({ xeta: err.message });
+    }
+  });
 }
 
 module.exports = { qeydiyyat, giris, fcmTokenYenile, profil, profilYenile, profilFotoYenile };

@@ -147,7 +147,7 @@ export default function AnaScreen({ navigation }) {
     try {
       const { data } = await api.get('/xidmetler');
       setXidmetler(data.xidmetler || []);
-    } catch {}
+    } catch (err) { console.warn(err); }
   }
 
   async function konumAl() {
@@ -161,14 +161,14 @@ export default function AnaScreen({ navigation }) {
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
       });
-    } catch {}
+    } catch (err) { console.warn(err); }
   }
 
   async function aktivYoxla() {
     try {
       const { data } = await api.get('/sifaris/aktiv');
       if (data) setAktivSifaris(data);
-    } catch {}
+    } catch (err) { console.warn(err); }
   }
 
   function aktivSifarisEkrani() {

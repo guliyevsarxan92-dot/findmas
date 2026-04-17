@@ -17,8 +17,10 @@ const KAT_IKONLAR = {
 };
 
 const STATUS_CFG = {
-  odendi: { text: 'Tamamlandı', color: '#16A34A', bg: '#F0FDF4', ikon: 'checkmark-circle' },
+  tamamlandi: { text: 'Tamamlandı', color: '#16A34A', bg: '#F0FDF4', ikon: 'checkmark-circle' },
+  odendi: { text: 'Ödənildi', color: '#16A34A', bg: '#F0FDF4', ikon: 'checkmark-circle' },
   legv_edildi: { text: 'Ləğv edildi', color: C.error, bg: '#FEF2F2', ikon: 'close-circle' },
+  redd_edildi: { text: 'Rədd edildi', color: '#F59E0B', bg: '#FFFBEB', ikon: 'alert-circle' },
 };
 
 export default function TarixceScreen() {
@@ -37,7 +39,7 @@ export default function TarixceScreen() {
       setSifarisler(prev => s === 1 ? data.sifarisler : [...prev, ...data.sifarisler]);
       setDaha(data.sifarisler.length === 20);
       setSehife(s);
-    } catch {}
+    } catch (err) { console.warn(err); }
     setYuklenir(false);
   }
 

@@ -50,6 +50,7 @@ router.post('/sifaris/:id/reytinq', istifadeciAuth, sifarisCtrl.reytinqVer);
 router.get('/sifaris/aktiv', ikiliAuth, sifarisCtrl.aktivSifaris);
 router.get('/sifaris/tarixce', ikiliAuth, sifarisCtrl.tarixce);
 router.get('/usta/qazanc', ustaAuth, sifarisCtrl.ustaQazanc);
+router.get('/istifadeci/statistika', istifadeciAuth, sifarisCtrl.istifadeciStatistika);
 
 // Mesaj
 const mesajCtrl = require('../controllers/mesaj');

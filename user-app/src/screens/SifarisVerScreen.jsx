@@ -83,7 +83,7 @@ export default function SifarisVerScreen({ route, navigation }) {
         const [adres] = await Location.reverseGeocodeAsync(loc.coords);
         const parts = [adres.street, adres.streetNumber, adres.city || adres.region].filter(Boolean);
         setUnvan(parts.join(', '));
-      } catch {}
+      } catch (err) { console.warn(err); }
     } catch {
       Alert.alert('Xəta', 'Konum alına bilmədi. Xəritəni əl ilə istifadə edin.');
     } finally {
@@ -197,6 +197,8 @@ export default function SifarisVerScreen({ route, navigation }) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={s.scrollContent}
+          nestedScrollEnabled={true}
+          style={s.scrollView}
         >
           {/* Address */}
           <TouchableOpacity
@@ -354,6 +356,7 @@ const s = StyleSheet.create({
     shadowRadius: 20,
     shadowOffset: { width: 0, height: -4 },
     elevation: 16,
+    flex: 0,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -382,6 +385,10 @@ const s = StyleSheet.create({
   sheetSubtitle: {
     fontSize: 13,
     color: C.textSoft,
+  },
+  scrollView: {
+    flexGrow: 1,
+    flexShrink: 1,
   },
   scrollContent: {
     paddingHorizontal: 24,

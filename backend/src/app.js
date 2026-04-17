@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
@@ -26,6 +27,7 @@ app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Routes
 app.use('/api', routes);

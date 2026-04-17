@@ -8,6 +8,7 @@ import {
   Linking,
   Dimensions,
   Vibration,
+  ActivityIndicator,
 } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,13 +26,14 @@ const BAKU = {
   longitudeDelta: 0.05,
 };
 
-// Returns "HH:MM" for now + minutesAhead minutes
-function etaStr(minutesAhead = 10) {
-  const d = new Date(Date.now() + minutesAhead * 60 * 1000);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+function etaFromQebul(qebulTarixi) {
+  if (!qebulTarixi) return null;
+  const gecenDeq = Math.floor((Date.now() - new Date(qebulTarixi).getTime()) / 60000);
+  const qalan = Math.max(0, 15 - gecenDeq);
+  if (qalan <= 0) return 'Hər an gələ bilər';
+  return `~${qalan} dəq`;
 }
 
-// Returns initials string from ad + soyad
 function initials(ad, soyad) {
   return `${(ad || '')[0] || ''}${(soyad || '')[0] || ''}`.toUpperCase();
 }
@@ -40,6 +42,8 @@ export default function AktivSifarisScreen({ navigation }) {
   const [sifaris, setSifaris] = useState(null);
   const [userLoc, setUserLoc] = useState(null);
   const [ustaLoc, setUstaLoc] = useState(null);
+  const [secilmisReytinq, setSecilmisReytinq] = useState(0);
+  const [reytinqYuklenir, setReytinqYuklenir] = useState(false);
   const socketRef = useRef(null);
   const mapRef = useRef(null);
 
@@ -59,38 +63,52 @@ export default function AktivSifarisScreen({ navigation }) {
       if (data?.usta?.lat && data?.usta?.lng) {
         setUstaLoc({ latitude: parseFloat(data.usta.lat), longitude: parseFloat(data.usta.lng) });
       }
-    } catch {}
+    } catch (err) {
+      console.warn('AktivSifaris yukle xəta:', err);
+    }
   }
 
   async function qosul() {
-    const token = await AsyncStorage.getItem('token');
-    const socket = io(WS_URL, { auth: { token } });
-    socketRef.current = socket;
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const socket = io(WS_URL, { auth: { token } });
+      socketRef.current = socket;
 
-    socket.on('sifaris_status', ({ status, usta, xidmet_haqqi }) => {
-      setSifaris(prev => {
-        if (!prev) return prev;
-        return { ...prev, status, ...(usta ? { usta } : {}), ...(xidmet_haqqi ? { xidmet_haqqi } : {}) };
+      socket.on('sifaris_status', ({ status, usta, xidmet_haqqi }) => {
+        setSifaris(prev => {
+          if (!prev) return prev;
+          return { ...prev, status, ...(usta ? { usta } : {}), ...(xidmet_haqqi ? { xidmet_haqqi } : {}) };
+        });
       });
-    });
 
-    // Mesaj bildirişi
-    socket.on('yeni_mesaj', () => {
-      Vibration.vibrate(200);
-    });
+      socket.on('yeni_mesaj', () => {
+        Vibration.vibrate(200);
+      });
 
-    // Usta ləğv etdi — yeni usta axtarılır, UstaAxtarilir ekranına qayıt
-    socket.on('usta_yeniden_axtarilir', ({ sifaris_id, mesaj }) => {
-      Alert.alert('Yeni usta axtarılır', mesaj || 'Usta sifarişi ləğv etdi, yeni usta axtarılır...');
-      navigation.replace('UstaAxtarilir', { sifaris_id });
-    });
+      socket.on('usta_yeniden_axtarilir', ({ sifaris_id, mesaj }) => {
+        Alert.alert('Yeni usta axtarılır', mesaj || 'Usta sifarişi ləğv etdi, yeni usta axtarılır...');
+        navigation.replace('UstaAxtarilir', { sifaris_id });
+      });
 
-    // Real-vaxt usta konumu
-    socket.on('usta_konum', ({ lat, lng }) => {
-      const coord = { latitude: parseFloat(lat), longitude: parseFloat(lng) };
-      setUstaLoc(coord);
-      setSifaris(prev => prev ? { ...prev, usta: { ...prev.usta, lat, lng } } : prev);
-    });
+      socket.on('usta_konum', ({ lat, lng }) => {
+        const coord = { latitude: parseFloat(lat), longitude: parseFloat(lng) };
+        setUstaLoc(coord);
+        setSifaris(prev => prev ? { ...prev, usta: { ...prev.usta, lat, lng } } : prev);
+      });
+    } catch (err) {
+      console.warn('AktivSifaris qoşulma xəta:', err);
+    }
+  }
+
+  async function reytinqGonderVeBagla() {
+    if (!secilmisReytinq || !sifaris) return;
+    setReytinqYuklenir(true);
+    try {
+      await api.post(`/sifaris/${sifaris.id}/reytinq`, { reytinq: secilmisReytinq });
+    } catch (err) {
+      console.warn('Reytinq göndərmə xəta:', err);
+    }
+    navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
   }
 
   async function legvEt() {
@@ -102,7 +120,9 @@ export default function AktivSifarisScreen({ navigation }) {
         onPress: async () => {
           try {
             await api.post(`/sifaris/${sifaris.id}/legv`);
-          } catch {}
+          } catch (err) {
+            console.warn('Ləğv xəta:', err);
+          }
           navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
         },
       },
@@ -110,7 +130,6 @@ export default function AktivSifarisScreen({ navigation }) {
     ]);
   }
 
-  // ---- Loading state ----
   if (!sifaris) {
     return (
       <View style={s.loadWrap}>
@@ -126,7 +145,6 @@ export default function AktivSifarisScreen({ navigation }) {
 
   const { status, usta } = sifaris;
 
-  // ---- Map region — real-vaxt ustaLoc state üstünlüklüdür ----
   const liveUstaCoord = ustaLoc
     || (usta?.lat && usta?.lng
       ? { latitude: parseFloat(usta.lat), longitude: parseFloat(usta.lng) }
@@ -139,11 +157,11 @@ export default function AktivSifarisScreen({ navigation }) {
   const routePoints =
     liveUstaCoord && userLoc ? [liveUstaCoord, userLoc] : null;
 
-  // legacy alias
   const ustaCoord = liveUstaCoord;
 
   // ---- STATE A: qebul_edildi ----
   if (status === 'qebul_edildi') {
+    const eta = etaFromQebul(sifaris.qebul_tarixi);
     return (
       <View style={s.container}>
         <MapView style={StyleSheet.absoluteFillObject} region={mapRegion}>
@@ -155,7 +173,6 @@ export default function AktivSifarisScreen({ navigation }) {
         <View style={s.bottomCard}>
           <View style={s.handle} />
 
-          {/* Master row */}
           <View style={s.masterRow}>
             <View style={s.avatar}>
               {usta?.ad ? (
@@ -176,7 +193,6 @@ export default function AktivSifarisScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Action buttons */}
           <View style={s.twoBtn}>
             <TouchableOpacity
               style={s.outlineBtn}
@@ -194,9 +210,8 @@ export default function AktivSifarisScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* ETA */}
           <Text style={s.etaLarge}>
-            {usta?.eta_deqiqe ? `${usta.eta_deqiqe} dəqiqəyə gələcək` : 'Yolda...'}
+            {eta || 'Usta yolda...'}
           </Text>
 
           <View style={s.separator} />
@@ -212,6 +227,7 @@ export default function AktivSifarisScreen({ navigation }) {
   // ---- STATE B: yolda | baslandi ----
   if (status === 'yolda' || status === 'baslandi') {
     const statusTitle = status === 'yolda' ? 'Usta yoldadır' : 'İş başladı';
+    const eta = etaFromQebul(sifaris.qebul_tarixi);
 
     return (
       <View style={s.container}>
@@ -237,15 +253,15 @@ export default function AktivSifarisScreen({ navigation }) {
             <Text style={s.addressText} numberOfLines={2}>{sifaris.unvan_metn}</Text>
           ) : null}
 
-          {/* ETA row */}
-          <View style={s.etaRow}>
-            <Text style={s.etaLabel}>ETA</Text>
-            <Text style={s.etaValue}>{etaStr(10)}</Text>
-          </View>
+          {status === 'yolda' && eta ? (
+            <View style={s.etaRow}>
+              <Text style={s.etaLabel}>ETA</Text>
+              <Text style={s.etaValue}>{eta}</Text>
+            </View>
+          ) : null}
 
           <View style={s.separator} />
 
-          {/* Action buttons */}
           <View style={s.twoBtn}>
             <TouchableOpacity
               style={s.outlineBtn}
@@ -270,16 +286,7 @@ export default function AktivSifarisScreen({ navigation }) {
     );
   }
 
-  // ---- STATE C: tamamlandi ----
-  useEffect(() => {
-    if (status === 'tamamlandi') {
-      const timer = setTimeout(() => {
-        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [status]);
-
+  // ---- STATE C: tamamlandi — reytinq ver + Tamam ----
   return (
     <View style={s.container}>
       <MapView style={StyleSheet.absoluteFillObject} initialRegion={BAKU} />
@@ -287,16 +294,39 @@ export default function AktivSifarisScreen({ navigation }) {
       <View style={s.bottomCard}>
         <View style={s.handle} />
 
-        <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+        <View style={{ alignItems: 'center', marginBottom: 16 }}>
           <View style={s.doneIcon}>
-            <Ionicons name="checkmark-circle" size={56} color="#22C55E" />
+            <Ionicons name="checkmark-circle" size={48} color="#22C55E" />
           </View>
           <Text style={s.statusTitle}>Sifariş tamamlandı</Text>
-          <Text style={{ fontSize: 16, color: C.textSoft, marginTop: 6 }}>Təşəkkür edirik!</Text>
           {sifaris.xidmet_haqqi ? (
             <Text style={s.xidmetHaqqi}>Xidmət haqqı: {parseFloat(sifaris.xidmet_haqqi).toFixed(2)} ₼</Text>
           ) : null}
         </View>
+
+        <Text style={s.ratingLabel}>Ustanı qiymətləndirin</Text>
+        <View style={s.starRow}>
+          {[1, 2, 3, 4, 5].map(n => (
+            <TouchableOpacity key={n} onPress={() => setSecilmisReytinq(n)} activeOpacity={0.7}>
+              <Ionicons
+                name={n <= secilmisReytinq ? 'star' : 'star-outline'}
+                size={36} color="#F59E0B"
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={[s.primaryBtn, (!secilmisReytinq || reytinqYuklenir) && { opacity: 0.5 }]}
+          onPress={reytinqGonderVeBagla}
+          disabled={!secilmisReytinq || reytinqYuklenir}
+          activeOpacity={0.8}>
+          {reytinqYuklenir ? (
+            <ActivityIndicator color={C.white} size="small" />
+          ) : (
+            <Text style={s.primaryBtnText}>Tamam</Text>
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -316,7 +346,6 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.15)',
   },
 
-  // --- Bottom sheet ---
   bottomCard: {
     position: 'absolute',
     bottom: 0,
@@ -342,7 +371,6 @@ const s = StyleSheet.create({
     marginBottom: 20,
   },
 
-  // --- Master row (State A) ---
   masterRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -379,7 +407,6 @@ const s = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // --- ETA large text (State A) ---
   etaLarge: {
     fontSize: 18,
     fontWeight: '700',
@@ -388,7 +415,6 @@ const s = StyleSheet.create({
     marginVertical: 16,
   },
 
-  // --- Status title + address (State B/C) ---
   statusTitle: {
     fontSize: 20,
     fontWeight: '800',
@@ -402,7 +428,6 @@ const s = StyleSheet.create({
     marginBottom: 14,
   },
 
-  // --- ETA row (State B) ---
   etaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -422,14 +447,12 @@ const s = StyleSheet.create({
     color: C.dark,
   },
 
-  // --- Separator ---
   separator: {
     height: 1,
     backgroundColor: C.border,
     marginBottom: 16,
   },
 
-  // --- Two-button row ---
   twoBtn: {
     flexDirection: 'row',
     gap: 12,
@@ -456,7 +479,6 @@ const s = StyleSheet.create({
     backgroundColor: '#FFF5F5',
   },
 
-  // --- "Ləğv et" text button (State A) ---
   legvTextBtn: {
     alignItems: 'center',
     paddingVertical: 4,
@@ -467,6 +489,25 @@ const s = StyleSheet.create({
     fontWeight: '500',
   },
 
+  primaryBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.primary,
+    borderRadius: 16,
+    paddingVertical: 14,
+    marginTop: 12,
+    shadowColor: C.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: C.white,
+  },
   doneIcon: { marginBottom: 8 },
   xidmetHaqqi: { fontSize: 15, fontWeight: '600', color: C.primary, marginTop: 4 },
+  ratingLabel: { fontSize: 14, fontWeight: '600', color: C.dark, textAlign: 'center', marginBottom: 8 },
+  starRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 4 },
 });

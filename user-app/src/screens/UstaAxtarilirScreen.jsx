@@ -81,7 +81,9 @@ export default function UstaAxtarilirScreen({ route, navigation }) {
         onPress: async () => {
           try {
             await api.post(`/sifaris/${sifaris_id}/legv`);
-          } catch {}
+          } catch (err) {
+            console.warn('Ləğv xəta:', err);
+          }
           navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
         },
       },

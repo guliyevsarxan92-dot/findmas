@@ -389,7 +389,8 @@ async function reytinqVer(req, res) {
     if (!['tamamlandi', 'odendi'].includes(sifaris.status)) return res.status(400).json({ xeta: 'Sifariş hələ tamamlanmayıb' });
     if (sifaris.reytinq) return res.status(400).json({ xeta: 'Artıq reytinq vermisiniz' });
 
-    await sifaris.update({ reytinq, reytinq_yorum });
+    const yeniStatus = sifaris.status === 'tamamlandi' ? 'odendi' : sifaris.status;
+    await sifaris.update({ reytinq, reytinq_yorum, status: yeniStatus });
 
     // Ustanın orta reytinqini yenilə
     const { fn, col, Op } = require('sequelize');
@@ -524,8 +525,8 @@ async function tarixce(req, res) {
     const { sehife = 1 } = req.query;
     const limit = 20;
     const where = req.istifadeci
-      ? { istifadeci_id: req.istifadeci.id, status: ['odendi', 'legv_edildi'] }
-      : { usta_id: req.usta.id, status: ['odendi', 'legv_edildi'] };
+      ? { istifadeci_id: req.istifadeci.id, status: ['tamamlandi', 'odendi', 'legv_edildi'] }
+      : { usta_id: req.usta.id, status: ['tamamlandi', 'odendi', 'legv_edildi'] };
 
     const { count, rows } = await Sifaris.findAndCountAll({
       where,
@@ -589,4 +590,28 @@ async function ustaQazanc(req, res) {
   }
 }
 
-module.exports = { yeniSifaris, sifarisQebul, sifarisRedd, statusDeyis, legvEt, ustaLegvEt, odenish, reytinqVer, aktivSifaris, tarixce, ustaQazanc };
+// GET /api/istifadeci/statistika  — istifadəçi ümumi statistikası
+async function istifadeciStatistika(req, res) {
+  try {
+    const { Op, fn, col } = require('sequelize');
+    const result = await Sifaris.findOne({
+      where: {
+        istifadeci_id: req.istifadeci.id,
+        status: ['tamamlandi', 'odendi'],
+      },
+      attributes: [
+        [fn('COUNT', col('id')), 'sifaris_sayi'],
+        [fn('COALESCE', fn('SUM', col('məbleg')), 0), 'cem_xerc'],
+      ],
+      raw: true,
+    });
+    res.json({
+      sifaris: parseInt(result.sifaris_sayi) || 0,
+      xerc: parseFloat(result.cem_xerc || 0).toFixed(2),
+    });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+module.exports = { yeniSifaris, sifarisQebul, sifarisRedd, statusDeyis, legvEt, ustaLegvEt, odenish, reytinqVer, aktivSifaris, tarixce, ustaQazanc, istifadeciStatistika };

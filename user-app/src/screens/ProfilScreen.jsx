@@ -35,12 +35,9 @@ export default function ProfilScreen() {
       }
     });
     AsyncStorage.getItem('bildirisler').then(r => r && setBildirisler(JSON.parse(r)));
-    api.get('/sifaris/tarixce?sehife=1').then(({ data }) => {
-      const list = data.sifarisler || [];
-      const tamamlanan = list.filter(s => s.status === 'odendi');
-      const xerc = tamamlanan.reduce((sum, s) => sum + parseFloat(s.məbleg || 0), 0);
-      setStats({ sifaris: tamamlanan.length, xerc: xerc.toFixed(2) });
-    }).catch(() => {});
+    api.get('/istifadeci/statistika').then(({ data }) => {
+      setStats({ sifaris: data.sifaris || 0, xerc: data.xerc || '0.00' });
+    }).catch(err => console.warn('Statistika xəta:', err));
   }, []);
 
   async function fotoSec() {
@@ -54,18 +51,22 @@ export default function ProfilScreen() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
-      base64: true,
     });
     if (result.canceled) return;
     const asset = result.assets[0];
-    const base64Uri = `data:image/jpeg;base64,${asset.base64}`;
     setFotoYuklenir(true);
     try {
-      await api.put('/istifadeci/profil-foto', { foto: base64Uri });
-      const yeniUser = { ...user, foto: base64Uri };
+      const formData = new FormData();
+      const fileName = asset.uri.split('/').pop() || 'foto.jpg';
+      formData.append('foto', { uri: asset.uri, name: fileName, type: 'image/jpeg' });
+      await api.put('/istifadeci/profil-foto', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const yeniUser = { ...user, foto: asset.uri };
       setUser(yeniUser);
       await AsyncStorage.setItem('user', JSON.stringify(yeniUser));
-    } catch {
+    } catch (err) {
+      console.warn('Foto yükləmə xəta:', err);
       Alert.alert('Xəta', 'Foto yüklənmədi');
     } finally {
       setFotoYuklenir(false);
