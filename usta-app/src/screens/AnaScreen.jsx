@@ -226,6 +226,9 @@ export default function AnaScreen({ navigation }) {
   const onlaynRef = useRef(onlayn);
   useEffect(() => { onlaynRef.current = onlayn; }, [onlayn]);
 
+  const ustaRef = useRef(usta);
+  useEffect(() => { ustaRef.current = usta; }, [usta]);
+
   const panResponder = useMemo(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => !toggling,
@@ -236,7 +239,10 @@ export default function AnaScreen({ navigation }) {
       },
       onPanResponderMove: (_, g) => {
         const base = onlaynRef.current ? MAX_SLIDE : 0;
-        const val = Math.max(0, Math.min(MAX_SLIDE, base + g.dx));
+        let val = Math.max(0, Math.min(MAX_SLIDE, base + g.dx));
+        if (!ustaRef.current?.tesdiqlendi && !onlaynRef.current) {
+          val = Math.min(val, MAX_SLIDE * 0.3);
+        }
         slideAnim.setValue(val);
         bgAnim.setValue(val / MAX_SLIDE);
       },
@@ -248,6 +254,12 @@ export default function AnaScreen({ navigation }) {
         const threshold = MAX_SLIDE * 0.45;
 
         if (!cur && final > threshold) {
+          if (!ustaRef.current?.tesdiqlendi) {
+            Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
+            Animated.timing(bgAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+            onlaynDeyis(true);
+            return;
+          }
           Animated.spring(slideAnim, { toValue: MAX_SLIDE, useNativeDriver: false, bounciness: 4 }).start();
           Animated.timing(bgAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
           onlaynDeyis(true);
