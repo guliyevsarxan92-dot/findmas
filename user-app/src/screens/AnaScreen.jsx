@@ -64,11 +64,19 @@ function KatIkon({ ikon, lib, color, size = 26 }) {
 }
 
 export default function AnaScreen({ navigation }) {
+  const SEHERLER = [
+    { ad: 'Bakı',    lat: 40.4093, lng: 49.8671 },
+    { ad: 'Sumqayıt', lat: 40.5855, lng: 49.6317 },
+    { ad: 'Gəncə',  lat: 40.6828, lng: 46.3606 },
+  ];
+
   const [user, setUser] = useState(null);
   const [aktivSifaris, setAktivSifaris] = useState(null);
   const [mapRegion, setMapRegion] = useState(BAKU_REGION);
   const [xidmetler, setXidmetler] = useState([]);
   const [sheetSnap, setSheetSnap] = useState('mid');
+  const [seher, setSeher] = useState(SEHERLER[0]);
+  const [seherMenu, setSeherMenu] = useState(false);
 
   // Bottom sheet draggable state
   const translateY = useRef(new Animated.Value(SNAP_MID)).current;
@@ -212,24 +220,43 @@ export default function AnaScreen({ navigation }) {
         customMapStyle={LIGHT_MAP_STYLE}
       />
 
-      {/* TOP CARD */}
+      {/* TOP CARD — şəhər seçimi */}
       <View style={s.topCard}>
-        {/* Location dropdown */}
-        <TouchableOpacity style={s.locationPill} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={s.locationPill}
+          activeOpacity={0.7}
+          onPress={() => setSeherMenu(!seherMenu)}
+        >
           <Ionicons name="location-sharp" size={16} color={C.primary} />
-          <Text style={s.locationText}>Bakı</Text>
-          <Ionicons name="chevron-down" size={16} color={C.textSoft} />
-        </TouchableOpacity>
-
-        {/* Search bar */}
-        <TouchableOpacity style={s.searchBar} activeOpacity={0.9}>
-          <Ionicons name="search-outline" size={18} color={C.textMuted} style={s.searchIcon} />
-          <Text style={s.searchPlaceholder}>Hansı xidmət lazımdır?</Text>
-          <View style={s.qrBtn}>
-            <Ionicons name="qr-code-outline" size={18} color={C.textSoft} />
-          </View>
+          <Text style={s.locationText}>{seher.ad}</Text>
+          <Ionicons name={seherMenu ? 'chevron-up' : 'chevron-down'} size={16} color={C.textSoft} />
         </TouchableOpacity>
       </View>
+
+      {/* Şəhər dropdown */}
+      {seherMenu && (
+        <View style={s.seherDropdown}>
+          {SEHERLER.map((sh) => (
+            <TouchableOpacity
+              key={sh.ad}
+              style={[s.seherItem, sh.ad === seher.ad && s.seherItemAktiv]}
+              onPress={() => {
+                setSeher(sh);
+                setSeherMenu(false);
+                setMapRegion({ latitude: sh.lat, longitude: sh.lng, latitudeDelta: 0.05, longitudeDelta: 0.05 });
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={sh.ad === seher.ad ? 'radio-button-on' : 'radio-button-off'}
+                size={18}
+                color={sh.ad === seher.ad ? C.primary : C.textMuted}
+              />
+              <Text style={[s.seherText, sh.ad === seher.ad && s.seherTextAktiv]}>{sh.ad}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* ACTIVE ORDER BANNER */}
       {aktivSifaris && (
@@ -338,7 +365,6 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
     shadowColor: '#000',
     shadowOpacity: 0.12,
     shadowRadius: 12,
@@ -348,48 +374,51 @@ const s = StyleSheet.create({
   locationPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     backgroundColor: C.primaryLight,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: C.primary + '30',
   },
   locationText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: C.dark,
   },
-  searchBar: {
-    flex: 1,
+  seherDropdown: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 56 + 56 : (StatusBar.currentHeight || 32) + 8 + 56,
+    left: 16,
+    backgroundColor: C.white,
+    borderRadius: 16,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+    zIndex: 100,
+  },
+  seherItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.bg,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-    gap: 6,
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
   },
-  searchIcon: {
-    marginRight: 2,
+  seherItemAktiv: {
+    backgroundColor: C.primaryLight,
   },
-  searchPlaceholder: {
-    flex: 1,
-    fontSize: 13,
-    color: C.textMuted,
+  seherText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.dark,
   },
-  qrBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: C.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: C.border,
+  seherTextAktiv: {
+    color: C.primary,
+    fontWeight: '700',
   },
 
   /* ── ACTIVE ORDER BANNER ── */
