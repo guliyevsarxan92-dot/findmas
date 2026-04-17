@@ -81,8 +81,8 @@ export default function AnaScreen({ navigation }) {
       if (Math.abs(g.dy) < 4) return false;
       // Collapsed — hər zaman PanResponder tutsun
       if (lastY.current === SNAP_COLLAPSED) return true;
-      // Mid — yalnız aşağı sürüşdürmə PanResponder-ə, yuxarı scroll FlatList-ə
-      if (lastY.current === SNAP_MID) return g.dy > 0;
+      // Mid — hər istiqamətdə PanResponder tutsun (yuxarı=expand, aşağı=collapse)
+      if (lastY.current === SNAP_MID) return true;
       // Expanded — yalnız FlatList yuxarıdadırsa VƏ aşağı sürüşdürürsə PanResponder tutsun
       if (flatListAtTop.current && g.dy > 0) return true;
       return false;
@@ -257,20 +257,32 @@ export default function AnaScreen({ navigation }) {
 
         <FlatList
           ref={flatListRef}
-          style={s.list}
+          style={{ flex: 1 }}
           data={xidmetler}
           keyExtractor={(item) => item.key}
           showsVerticalScrollIndicator={true}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={s.listContent}
-          bounces={sheetSnap !== 'collapsed'}
-          scrollEnabled={sheetSnap !== 'collapsed'}
+          bounces={sheetSnap === 'expanded'}
+          scrollEnabled={sheetSnap === 'expanded'}
           overScrollMode="always"
           nestedScrollEnabled={true}
           onScroll={(e) => {
             flatListAtTop.current = e.nativeEvent.contentOffset.y <= 0;
           }}
           scrollEventThrottle={16}
+          onTouchStart={() => {
+            if (sheetSnap === 'mid') {
+              lastY.current = SNAP_EXPANDED;
+              setSheetSnap('expanded');
+              Animated.spring(translateY, {
+                toValue: SNAP_EXPANDED,
+                useNativeDriver: true,
+                bounciness: 4,
+                speed: 14,
+              }).start();
+            }
+          }}
           ItemSeparatorComponent={() => <View style={s.separator} />}
           renderItem={({ item: kat }) => (
             <TouchableOpacity
