@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Linking, Alert, Dimensions, Platform, Image, ScrollView, TextInput, Modal,
+  Linking, Alert, Dimensions, Platform, Image, ScrollView, Modal,
 } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,15 +38,15 @@ const ls = StyleSheet.create({
 
 // ─── Completed screen ─────────────────────────────────────────────────────────
 function TamamlandiScreen({ sifaris, navigation }) {
+  const komisyon = sifaris?.komisyon ? parseFloat(sifaris.komisyon).toFixed(2) : '0.00';
   return (
     <View style={ts.wrap}>
       <View style={ts.topSection}>
+        <View style={ts.checkCircle}>
+          <Ionicons name="checkmark" size={36} color="#16A34A" />
+        </View>
         <Text style={ts.title}>Sifariş tamamlandı</Text>
-        {sifaris?.məbleg ? (
-          <Text style={ts.amount}>₼ {parseFloat(sifaris.məbleg).toFixed(2)}</Text>
-        ) : (
-          <Text style={ts.amount}>₼ 0.00</Text>
-        )}
+        <Text style={ts.subtitle}>Balansdan {komisyon} ₼ komisyon tutuldu</Text>
       </View>
       <TouchableOpacity
         style={ts.btn}
@@ -71,18 +71,23 @@ const ts = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 48,
   },
+  checkCircle: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: '#F0FDF4',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 22,
     fontWeight: '800',
     color: C.dark,
-    marginBottom: 16,
+    marginBottom: 8,
     textAlign: 'center',
   },
-  amount: {
-    fontSize: 44,
-    fontWeight: '800',
-    color: C.dark,
-    letterSpacing: -1,
+  subtitle: {
+    fontSize: 15,
+    color: C.textSoft,
+    textAlign: 'center',
   },
   btn: {
     width: '100%',
@@ -105,9 +110,7 @@ export default function AktivSifarisScreen({ navigation }) {
   const [legvModal, setLegvModal] = useState(false);
   const [legvSebeb, setLegvSebeb] = useState('');
   const [legvYuklenir, setLegvYuklenir] = useState(false);
-  const [haqqiModal, setHaqqiModal]     = useState(false);
-  const [xidmetHaqqi, setXidmetHaqqi]   = useState('');
-  const [haqqiYuklenir, setHaqqiYuklenir] = useState(false);
+  const [bitirilir, setBitirilir] = useState(false);
   const socketRef                 = useRef(null);
   const mapRef                    = useRef(null);
 
@@ -135,13 +138,6 @@ export default function AktivSifarisScreen({ navigation }) {
     const token = await AsyncStorage.getItem('token');
     const socket = io(WS_URL, { auth: { token } });
     socketRef.current = socket;
-    socket.on('odenis_alindi', ({ məbleg }) => {
-      Alert.alert(
-        'Ödəniş alındı!',
-        `${məbleg} ₼ hesabınıza köçürüldü`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
-      );
-    });
     socket.on('usta_konum', ({ lat, lng }) => {
       setUstaLoc({ latitude: parseFloat(lat), longitude: parseFloat(lng) });
     });
@@ -181,20 +177,14 @@ export default function AktivSifarisScreen({ navigation }) {
   }
 
   async function isiBitir() {
-    const haqq = parseFloat(xidmetHaqqi);
-    if (!haqq || haqq <= 0) {
-      Alert.alert('Xəta', 'Xidmət haqqını düzgün daxil edin');
-      return;
-    }
-    setHaqqiYuklenir(true);
+    setBitirilir(true);
     try {
-      await api.post(`/sifaris/${sifaris.id}/status`, { yeni_status: 'tamamlandi', xidmet_haqqi: haqq });
-      setHaqqiModal(false);
-      setSifaris(prev => ({ ...prev, status: 'tamamlandi', xidmet_haqqi: haqq }));
+      const { data } = await api.post(`/sifaris/${sifaris.id}/status`, { yeni_status: 'tamamlandi' });
+      setSifaris(prev => ({ ...prev, status: 'tamamlandi', komisyon: data.komisyon }));
     } catch (err) {
       Alert.alert('Xəta', err.response?.data?.xeta || 'Xəta baş verdi');
     } finally {
-      setHaqqiYuklenir(false);
+      setBitirilir(false);
     }
   }
 
@@ -390,7 +380,10 @@ export default function AktivSifarisScreen({ navigation }) {
 
           if (isCurrent) {
             const onPressFn = isLast
-              ? () => setHaqqiModal(true)
+              ? () => Alert.alert('Təsdiq', 'İşi bitirdiyinizi təsdiqləyin. Xidmət haqqından 10% komisyon balansdan tutulacaq.', [
+                  { text: 'Bəli, bitirdim', onPress: isiBitir },
+                  { text: 'Xeyr' },
+                ])
               : () => Alert.alert('Təsdiq', `"${step.label}" əməliyyatını təsdiqləyin?`, [
                   { text: 'Bəli', onPress: () => statusDeyis(step.novbeti) },
                   { text: 'Xeyr' },
@@ -430,37 +423,6 @@ export default function AktivSifarisScreen({ navigation }) {
         )}
 
       </View>
-
-      {/* Xidmət haqqı modal */}
-      <Modal visible={haqqiModal} transparent animationType="slide">
-        <View style={s.modalOverlay}>
-          <View style={s.modalBox}>
-            <Text style={s.modalBasliq}>Xidmət haqqı</Text>
-            <Text style={s.modalAciq}>Müştəridən nağd alacağınız məbləği daxil edin</Text>
-            <TextInput
-              style={s.modalInput}
-              value={xidmetHaqqi}
-              onChangeText={setXidmetHaqqi}
-              placeholder="Məs: 50"
-              placeholderTextColor={C.textMuted}
-              keyboardType="numeric"
-            />
-            <TouchableOpacity
-              style={[s.modalBtn, { backgroundColor: C.primary }]}
-              onPress={isiBitir}
-              disabled={haqqiYuklenir}
-              activeOpacity={0.85}
-            >
-              <Text style={[s.modalBtnMetn, { color: C.white }]}>
-                {haqqiYuklenir ? 'Göndərilir...' : 'İşi bitir'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.modalBtn} onPress={() => setHaqqiModal(false)} activeOpacity={0.85}>
-              <Text style={[s.modalBtnMetn, { color: C.textSoft }]}>Geri qayıt</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Cancel modal */}
       <Modal visible={legvModal} transparent animationType="slide">
