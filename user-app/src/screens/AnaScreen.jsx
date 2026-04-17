@@ -10,6 +10,7 @@ import {
   Platform,
   Animated,
   PanResponder,
+  Modal,
 } from 'react-native';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -71,6 +72,7 @@ export default function AnaScreen({ navigation }) {
   const [xidmetler, setXidmetler] = useState([]);
   const [seher, setSeher] = useState(SEHERLER[0]);
   const [seherMenu, setSeherMenu] = useState(false);
+  const [altModal, setAltModal] = useState(null);
 
   // Sheet position — starts at mid
   const sheetY = useRef(new Animated.Value(SNAP_MID)).current;
@@ -184,10 +186,19 @@ export default function AnaScreen({ navigation }) {
       ]);
       return;
     }
+    if (kat.alt_xidmetler && kat.alt_xidmetler.length > 0) {
+      setAltModal(kat);
+      return;
+    }
+    sifariseKec(kat, null);
+  }
+
+  function sifariseKec(kat, altXidmet) {
     const normalized = {
       ...kat,
       lib: ikonLib(kat.ikon_lib),
-      qiymet: qiymetMetn(kat.qiymet),
+      qiymet: qiymetMetn(altXidmet ? altXidmet.qiymet : kat.qiymet),
+      alt_secim: altXidmet ? altXidmet.ad : null,
     };
     navigation.navigate('SifarisVer', { kateqoriya: normalized });
   }
@@ -308,6 +319,35 @@ export default function AnaScreen({ navigation }) {
           )}
         />
       </Animated.View>
+
+      {/* Alt xidmət seçimi modalı */}
+      <Modal visible={!!altModal} transparent animationType="slide" onRequestClose={() => setAltModal(null)}>
+        <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setAltModal(null)}>
+          <View style={s.altModalBox}>
+            <View style={s.altModalHandle} />
+            <Text style={s.altModalTitle}>{altModal?.ad}</Text>
+            <Text style={s.altModalSub}>Xidmət növünü seçin</Text>
+            {altModal?.alt_xidmetler?.map((alt, i) => (
+              <TouchableOpacity
+                key={i}
+                style={s.altModalItem}
+                activeOpacity={0.7}
+                onPress={() => {
+                  const kat = altModal;
+                  setAltModal(null);
+                  sifariseKec(kat, alt);
+                }}
+              >
+                <View style={s.altModalItemLeft}>
+                  <View style={[s.altModalDot, { backgroundColor: altModal?.rang || C.primary }]} />
+                  <Text style={s.altModalItemAd}>{alt.ad}</Text>
+                </View>
+                <Text style={s.altModalItemQiymet}>{alt.qiymet} ₼</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -519,5 +559,70 @@ const s = StyleSheet.create({
     height: 1,
     backgroundColor: C.border,
     marginLeft: 62,
+  },
+
+  /* ── ALT XİDMƏT MODALI ── */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  altModalBox: {
+    backgroundColor: C.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+  },
+  altModalHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C.border,
+    alignSelf: 'center',
+    marginBottom: 18,
+  },
+  altModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: C.dark,
+    marginBottom: 4,
+  },
+  altModalSub: {
+    fontSize: 14,
+    color: C.textSoft,
+    marginBottom: 20,
+  },
+  altModalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: C.bg,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  altModalItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  altModalDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  altModalItemAd: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: C.dark,
+  },
+  altModalItemQiymet: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: C.primary,
   },
 });

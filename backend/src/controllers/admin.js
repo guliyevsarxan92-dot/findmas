@@ -46,9 +46,57 @@ async function ustaTesdiqlə(req, res) {
 }
 
 // PUT /api/admin/usta/:id/blokla
+// Body: { muddet: 10 | 30 | 90 | 0 (həmişəlik), sebeb }
 async function ustaBlokla(req, res) {
   try {
-    await Usta.update({ aktiv: false, onlayn: false }, { where: { id: req.params.id } });
+    const { muddet, sebeb } = req.body || {};
+    const gun = parseInt(muddet) || 0;
+
+    let blok_bitis = null;
+    if (gun > 0) {
+      blok_bitis = new Date();
+      blok_bitis.setDate(blok_bitis.getDate() + gun);
+    }
+
+    await Usta.update({
+      bloklanib: true,
+      blok_bitis,
+      blok_sebeb: sebeb || 'Admin tərəfindən bloklanıb',
+      onlayn: false,
+    }, { where: { id: req.params.id } });
+
+    // Real-vaxtda ustaya bildiriş
+    const io = req.app.get('io');
+    if (io) {
+      const muddetMetn = gun > 0 ? `${gun} gün` : 'Həmişəlik';
+      io.to(`usta_${req.params.id}`).emit('hesab_bloklandi', {
+        bloklanib: true,
+        blok_bitis,
+        blok_sebeb: sebeb || 'Admin tərəfindən bloklanıb',
+        muddet_metn: muddetMetn,
+      });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+// PUT /api/admin/usta/:id/blok-ac
+async function ustaBlokAc(req, res) {
+  try {
+    await Usta.update({
+      bloklanib: false,
+      blok_bitis: null,
+      blok_sebeb: null,
+    }, { where: { id: req.params.id } });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`usta_${req.params.id}`).emit('blok_acildi', { mesaj: 'Hesabınızın bloku açıldı.' });
+    }
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ xeta: err.message });
@@ -105,4 +153,4 @@ async function sifarisler(req, res) {
   }
 }
 
-module.exports = { ustalarSiyahi, ustaTesdiqlə, ustaBlokla, statistika, sifarisler };
+module.exports = { ustalarSiyahi, ustaTesdiqlə, ustaBlokla, ustaBlokAc, statistika, sifarisler };

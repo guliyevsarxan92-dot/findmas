@@ -10,7 +10,6 @@ import C from '../utils/colors';
 
 export default function BalansArtirScreen({ navigation }) {
   const [məbleg, setMəbleg] = useState('');
-  const [kartNomre, setKartNomre] = useState('');
   const [qebzBase64, setQebzBase64] = useState(null);
   const [adminKart, setAdminKart] = useState(null);
   const [yuklenir, setYuklenir] = useState(false);
@@ -41,15 +40,10 @@ export default function BalansArtirScreen({ navigation }) {
       Alert.alert('Xəta', 'Düzgün məbləğ daxil edin');
       return;
     }
-    if (!kartNomre.trim()) {
-      Alert.alert('Xəta', 'Kart nömrənizi daxil edin');
-      return;
-    }
     setYuklenir(true);
     try {
       await api.post('/usta/balans-artir', {
         məbleg: Number(məbleg),
-        kart_nomre: kartNomre.trim(),
         qebz: qebzBase64,
       });
       Alert.alert(
@@ -99,21 +93,6 @@ export default function BalansArtirScreen({ navigation }) {
           placeholderTextColor={C.textMuted}
         />
         <Text style={s.azn}>₼</Text>
-      </View>
-
-      {/* Your card number */}
-      <Text style={s.label}>Sizin kart nömrəsi (köçürdüyünüz kart)</Text>
-      <View style={s.inputWrap}>
-        <Ionicons name="card-outline" size={20} color={C.textMuted} style={{ marginRight: 8 }} />
-        <TextInput
-          style={s.input}
-          value={kartNomre}
-          onChangeText={setKartNomre}
-          placeholder="4169 7388 XXXX XXXX"
-          keyboardType="number-pad"
-          maxLength={19}
-          placeholderTextColor={C.textMuted}
-        />
       </View>
 
       {/* Receipt */}

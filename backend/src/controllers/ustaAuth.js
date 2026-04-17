@@ -56,7 +56,15 @@ async function giris(req, res) {
     const dogru = await bcrypt.compare(sifre, usta.sifre_hash);
     if (!dogru) return res.status(400).json({ xeta: 'Məlumatlar yanlışdır' });
 
-    if (!usta.aktiv) return res.status(403).json({ xeta: 'Hesabınız bloklanıb' });
+    // Blok yoxlaması
+    if (usta.bloklanib) {
+      if (usta.blok_bitis && new Date(usta.blok_bitis) <= new Date()) {
+        await usta.update({ bloklanib: false, blok_bitis: null, blok_sebeb: null });
+      } else {
+        const bitis = usta.blok_bitis ? new Date(usta.blok_bitis).toLocaleDateString('az') : 'Həmişəlik';
+        return res.status(403).json({ xeta: `Hesabınız bloklanıb. Bitmə: ${bitis}`, bloklanib: true });
+      }
+    }
 
     res.json({
       token: tokenYarat(usta),
@@ -64,7 +72,9 @@ async function giris(req, res) {
         id: usta.id, ad: usta.ad, soyad: usta.soyad,
         telefon, kateqoriya: usta.kateqoriya,
         tesdiqlendi: usta.tesdiqlendi, onlayn: usta.onlayn,
-        foto: usta.foto,
+        foto: usta.foto, bloklanib: usta.bloklanib,
+        blok_bitis: usta.blok_bitis, blok_sebeb: usta.blok_sebeb,
+        vesiqe_on: !!usta.vesiqe_on, lisenziya: !!usta.lisenziya,
       },
     });
   } catch (err) {
@@ -77,6 +87,17 @@ async function onlaynDeyis(req, res) {
   try {
     const { onlayn } = req.body;
     const usta = await Usta.findByPk(req.usta.id);
+
+    // Blok yoxlaması
+    if (usta.bloklanib) {
+      if (usta.blok_bitis && new Date(usta.blok_bitis) <= new Date()) {
+        // Blok müddəti bitib — avtomatik aç
+        await usta.update({ bloklanib: false, blok_bitis: null, blok_sebeb: null });
+      } else {
+        const bitis = usta.blok_bitis ? new Date(usta.blok_bitis).toLocaleDateString('az') : 'Həmişəlik';
+        return res.status(403).json({ xeta: `Hesabınız bloklanıb. Bitmə: ${bitis}`, bloklanib: true, blok_bitis: usta.blok_bitis, blok_sebeb: usta.blok_sebeb });
+      }
+    }
 
     if (!usta.tesdiqlendi) {
       return res.status(403).json({ xeta: 'Hesabınız hələ təsdiqlənməyib' });
@@ -138,4 +159,19 @@ async function profilFotoYenile(req, res) {
   }
 }
 
-module.exports = { qeydiyyat, giris, onlaynDeyis, konumYenile, fcmTokenYenile, profil, profilFotoYenile };
+// PUT /api/usta/senedler  — şəxsiyyət vəsiqəsi + lisenziya yüklə
+async function senedlerYenile(req, res) {
+  try {
+    const { vesiqe_on, lisenziya } = req.body;
+    const update = {};
+    if (vesiqe_on) update.vesiqe_on = vesiqe_on;
+    if (lisenziya) update.lisenziya = lisenziya;
+    if (Object.keys(update).length === 0) return res.status(400).json({ xeta: 'Heç bir sənəd göndərilməyib' });
+    await Usta.update(update, { where: { id: req.usta.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+module.exports = { qeydiyyat, giris, onlaynDeyis, konumYenile, fcmTokenYenile, profil, profilFotoYenile, senedlerYenile };

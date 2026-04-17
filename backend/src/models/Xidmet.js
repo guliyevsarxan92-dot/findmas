@@ -12,6 +12,7 @@ const Xidmet = sequelize.define('Xidmet', {
   qiymet_min: { type: DataTypes.INTEGER, defaultValue: 5 },
   qiymet_max: { type: DataTypes.INTEGER, defaultValue: 50 },
   qiymet: { type: DataTypes.INTEGER, defaultValue: 0 },
+  alt_xidmetler: { type: DataTypes.JSONB, defaultValue: null },
   aktiv: { type: DataTypes.BOOLEAN, defaultValue: true },
   sira: { type: DataTypes.INTEGER, defaultValue: 0 },
 }, {

@@ -13,9 +13,8 @@ async function aktifKart(req, res) {
 // POST /api/usta/balans-artir  — usta artırma sorğusu göndərir (qəbz + məbləğ)
 async function balansArtirSorgu(req, res) {
   try {
-    const { məbleg, kart_nomre, qebz } = req.body;
+    const { məbleg, qebz } = req.body;
     if (!məbleg || məbleg <= 0) return res.status(400).json({ xeta: 'Düzgün məbləğ daxil edin' });
-    if (!kart_nomre) return res.status(400).json({ xeta: 'Kart nömrəsini daxil edin' });
 
     // Gözləyən sorğu varmı?
     const gozlenir = await BalansArtirma.findOne({
@@ -26,7 +25,6 @@ async function balansArtirSorgu(req, res) {
     const sorgu = await BalansArtirma.create({
       usta_id: req.usta.id,
       məbleg,
-      kart_nomre,
       qebz: qebz || null,
     });
     res.status(201).json({ ok: true, id: sorgu.id });

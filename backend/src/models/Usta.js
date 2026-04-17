@@ -43,7 +43,7 @@ const Usta = sequelize.define('Usta', {
     allowNull: false,
   },
   foto: {
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT,
     allowNull: true,
   },
   // İxtisas
@@ -123,6 +123,28 @@ const Usta = sequelize.define('Usta', {
   xal: {
     type: DataTypes.INTEGER,
     defaultValue: 0,
+  },
+  // Sənədlər — şəxsiyyət vəsiqəsi ön hissə + lisenziya/sertifikat
+  vesiqe_on: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  lisenziya: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  // Blok sistemi
+  bloklanib: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  blok_bitis: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  blok_sebeb: {
+    type: DataTypes.STRING,
+    allowNull: true,
   },
 }, {
   tableName: 'ustalar',

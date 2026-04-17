@@ -34,7 +34,14 @@
       ]
     },
     "plugins": [
-      "expo-location",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Sifariş almaq üçün arxa fonda da konumunuza ehtiyac var.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
       "expo-image-picker",
       "expo-font"
     ],
