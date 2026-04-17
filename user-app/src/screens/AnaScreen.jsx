@@ -24,7 +24,8 @@ import C from '../utils/colors';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const TAB_BAR_HEIGHT = 80;
-const SNAP_TOP = SCREEN_HEIGHT * 0.08;
+const TOP_CARD_BOTTOM = (Platform.OS === 'ios' ? 56 : (StatusBar.currentHeight || 32) + 8) + 56;
+const SNAP_TOP = TOP_CARD_BOTTOM + 12;
 const SNAP_MID = SCREEN_HEIGHT * 0.55;
 const SNAP_BOTTOM = SCREEN_HEIGHT - TAB_BAR_HEIGHT - 120;
 
