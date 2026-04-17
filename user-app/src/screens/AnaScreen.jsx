@@ -3,7 +3,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   Alert,
   Dimensions,
   StatusBar,
@@ -68,13 +68,25 @@ export default function AnaScreen({ navigation }) {
   const [aktivSifaris, setAktivSifaris] = useState(null);
   const [mapRegion, setMapRegion] = useState(BAKU_REGION);
   const [xidmetler, setXidmetler] = useState([]);
+  const [sheetSnap, setSheetSnap] = useState('mid');
 
   // Bottom sheet draggable state
   const translateY = useRef(new Animated.Value(SNAP_MID)).current;
   const lastY = useRef(SNAP_MID);
+  const flatListAtTop = useRef(true);
+  const flatListRef = useRef(null);
 
   const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+    onMoveShouldSetPanResponder: (_, g) => {
+      if (Math.abs(g.dy) < 4) return false;
+      // Collapsed — hər zaman PanResponder tutsun
+      if (lastY.current === SNAP_COLLAPSED) return true;
+      // Mid — yalnız aşağı sürüşdürmə PanResponder-ə, yuxarı scroll FlatList-ə
+      if (lastY.current === SNAP_MID) return g.dy > 0;
+      // Expanded — yalnız FlatList yuxarıdadırsa VƏ aşağı sürüşdürürsə PanResponder tutsun
+      if (flatListAtTop.current && g.dy > 0) return true;
+      return false;
+    },
     onPanResponderGrant: () => {
       translateY.setOffset(lastY.current);
       translateY.setValue(0);
@@ -111,6 +123,7 @@ export default function AnaScreen({ navigation }) {
       }
 
       lastY.current = target;
+      setSheetSnap(target === SNAP_EXPANDED ? 'expanded' : target === SNAP_MID ? 'mid' : 'collapsed');
       Animated.spring(translateY, {
         toValue: target,
         useNativeDriver: true,
@@ -242,42 +255,42 @@ export default function AnaScreen({ navigation }) {
           <Text style={s.sheetTitle}>Xidmət seçin</Text>
         </View>
 
-        <ScrollView
-          style={{ flex: 1 }}
+        <FlatList
+          ref={flatListRef}
+          style={s.list}
+          data={xidmetler}
+          keyExtractor={(item) => item.key}
           showsVerticalScrollIndicator={true}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={s.listContent}
-          bounces={true}
+          bounces={sheetSnap !== 'collapsed'}
+          scrollEnabled={sheetSnap !== 'collapsed'}
           overScrollMode="always"
-        >
-          {xidmetler.map((kat, index) => (
-            <View key={kat.key}>
-              <TouchableOpacity
-                style={s.serviceRow}
-                onPress={() => kateqoriyaSecildi(kat)}
-                activeOpacity={0.7}
-              >
-                {/* Icon */}
-                <View style={[s.serviceIconBox, { backgroundColor: (kat.rang || '#3B82F6') + '18' }]}>
-                  <KatIkon ikon={kat.ikon} lib={ikonLib(kat.ikon_lib)} color={kat.rang || '#3B82F6'} size={26} />
-                </View>
-
-                {/* Text */}
-                <View style={s.serviceTextBox}>
-                  <Text style={s.serviceName}>{kat.ad}</Text>
-                  {kat.altbaslik ? <Text style={s.serviceSubtitle}>{kat.altbaslik}</Text> : null}
-                </View>
-
-                {/* Price */}
-                {(kat.qiymet_min || kat.qiymet_max) ? (
-                  <Text style={s.servicePrice}>{qiymetMetn(kat.qiymet_min, kat.qiymet_max)}</Text>
-                ) : null}
-              </TouchableOpacity>
-
-              {index < xidmetler.length - 1 && <View style={s.separator} />}
-            </View>
-          ))}
-        </ScrollView>
+          nestedScrollEnabled={true}
+          onScroll={(e) => {
+            flatListAtTop.current = e.nativeEvent.contentOffset.y <= 0;
+          }}
+          scrollEventThrottle={16}
+          ItemSeparatorComponent={() => <View style={s.separator} />}
+          renderItem={({ item: kat }) => (
+            <TouchableOpacity
+              style={s.serviceRow}
+              onPress={() => kateqoriyaSecildi(kat)}
+              activeOpacity={0.7}
+            >
+              <View style={[s.serviceIconBox, { backgroundColor: (kat.rang || '#3B82F6') + '18' }]}>
+                <KatIkon ikon={kat.ikon} lib={ikonLib(kat.ikon_lib)} color={kat.rang || '#3B82F6'} size={26} />
+              </View>
+              <View style={s.serviceTextBox}>
+                <Text style={s.serviceName}>{kat.ad}</Text>
+                {kat.altbaslik ? <Text style={s.serviceSubtitle}>{kat.altbaslik}</Text> : null}
+              </View>
+              {(kat.qiymet_min || kat.qiymet_max) ? (
+                <Text style={s.servicePrice}>{qiymetMetn(kat.qiymet_min, kat.qiymet_max)}</Text>
+              ) : null}
+            </TouchableOpacity>
+          )}
+        />
       </Animated.View>
     </View>
   );

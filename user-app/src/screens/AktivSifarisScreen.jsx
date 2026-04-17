@@ -40,7 +40,6 @@ export default function AktivSifarisScreen({ navigation }) {
   const [sifaris, setSifaris] = useState(null);
   const [userLoc, setUserLoc] = useState(null);
   const [ustaLoc, setUstaLoc] = useState(null);
-  const [secilmisReytinq, setSecilmisReytinq] = useState(0);
   const socketRef = useRef(null);
   const mapRef = useRef(null);
 
@@ -92,15 +91,6 @@ export default function AktivSifarisScreen({ navigation }) {
       setUstaLoc(coord);
       setSifaris(prev => prev ? { ...prev, usta: { ...prev.usta, lat, lng } } : prev);
     });
-  }
-
-  function reytinqSec(n) { setSecilmisReytinq(n); }
-
-  async function reytinqGonder() {
-    try {
-      await api.post(`/sifaris/${sifaris.id}/reytinq`, { reytinq: secilmisReytinq });
-      setSifaris(prev => ({ ...prev, reytinq: secilmisReytinq }));
-    } catch {}
   }
 
   async function legvEt() {
@@ -281,6 +271,15 @@ export default function AktivSifarisScreen({ navigation }) {
   }
 
   // ---- STATE C: tamamlandi ----
+  useEffect(() => {
+    if (status === 'tamamlandi') {
+      const timer = setTimeout(() => {
+        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [status]);
+
   return (
     <View style={s.container}>
       <MapView style={StyleSheet.absoluteFillObject} initialRegion={BAKU} />
@@ -288,48 +287,16 @@ export default function AktivSifarisScreen({ navigation }) {
       <View style={s.bottomCard}>
         <View style={s.handle} />
 
-        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+        <View style={{ alignItems: 'center', paddingVertical: 24 }}>
           <View style={s.doneIcon}>
-            <Ionicons name="checkmark-circle" size={48} color="#22C55E" />
+            <Ionicons name="checkmark-circle" size={56} color="#22C55E" />
           </View>
           <Text style={s.statusTitle}>Sifariş tamamlandı</Text>
+          <Text style={{ fontSize: 16, color: C.textSoft, marginTop: 6 }}>Təşəkkür edirik!</Text>
           {sifaris.xidmet_haqqi ? (
-            <Text style={s.xidmetHaqqi}>Xidmət haqqı: {parseFloat(sifaris.xidmet_haqqi).toFixed(2)} ₼ (nağd)</Text>
+            <Text style={s.xidmetHaqqi}>Xidmət haqqı: {parseFloat(sifaris.xidmet_haqqi).toFixed(2)} ₼</Text>
           ) : null}
         </View>
-
-        {!sifaris.reytinq ? (
-          <>
-            <Text style={s.ratingLabel}>Ustanı qiymətləndirin</Text>
-            <View style={s.starRow}>
-              {[1,2,3,4,5].map(n => (
-                <TouchableOpacity key={n} onPress={() => reytinqSec(n)} activeOpacity={0.7}>
-                  <Ionicons
-                    name={n <= (secilmisReytinq || 0) ? 'star' : 'star-outline'}
-                    size={36} color="#F59E0B"
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-            {secilmisReytinq > 0 && (
-              <TouchableOpacity
-                style={s.primaryBtn}
-                onPress={reytinqGonder}
-                activeOpacity={0.8}>
-                <Text style={s.primaryBtnText}>Göndər</Text>
-              </TouchableOpacity>
-            )}
-          </>
-        ) : (
-          <Text style={{ textAlign: 'center', color: C.textSoft, marginBottom: 12 }}>Təşəkkür edirik!</Text>
-        )}
-
-        <TouchableOpacity
-          style={s.outlineBtnSingle}
-          onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Main' }] })}
-          activeOpacity={0.7}>
-          <Text style={s.outlineBtnText}>Ana səhifəyə qayıt</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -500,35 +467,6 @@ const s = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // --- Primary green button ---
-  primaryBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: C.primary,
-    borderRadius: 16,
-    paddingVertical: 14,
-    marginTop: 12,
-    shadowColor: '#22C55E',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: C.white,
-  },
-  outlineBtnSingle: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    marginTop: 8,
-  },
   doneIcon: { marginBottom: 8 },
   xidmetHaqqi: { fontSize: 15, fontWeight: '600', color: C.primary, marginTop: 4 },
-  ratingLabel: { fontSize: 14, fontWeight: '600', color: C.dark, textAlign: 'center', marginBottom: 8 },
-  starRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 4 },
 });
