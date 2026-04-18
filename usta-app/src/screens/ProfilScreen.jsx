@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
+import {
+  View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image,
+  Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,7 +13,7 @@ import { useTheme } from '../context/ThemeContext';
 import api from '../services/api';
 import C from '../utils/colors';
 
-const MENU = [
+const STATIC_MENU = [
   { ikon: 'wallet-outline', ad: 'Balansı artır', rang: '#10B981', nav: 'BalansArtir' },
   { ikon: 'document-text-outline', ad: 'Sənədlərimi yenilə', rang: C.primary, nav: 'Senedler' },
   { ikon: 'notifications-outline', ad: 'Bildiriş parametrləri', rang: '#6366F1', nav: 'Bildiris' },
@@ -23,15 +26,23 @@ export default function ProfilScreen({ navigation }) {
   const { isDark, toggle, C: TC } = useTheme();
   const [usta, setUsta] = useState(null);
   const [fotoYuklenir, setFotoYuklenir] = useState(false);
+  const [redakteAcildi, setRedakteAcildi] = useState(false);
+  const [redakteForm, setRedakteForm] = useState({ ad: '', soyad: '', email: '' });
+  const [redakteYuklenir, setRedakteYuklenir] = useState(false);
 
   async function ustaNuYukle() {
     try {
       const { data } = await api.get('/usta/profil');
       setUsta(data);
+      setRedakteForm({ ad: data.ad || '', soyad: data.soyad || '', email: data.email || '' });
       await AsyncStorage.setItem('usta', JSON.stringify(data));
     } catch {
       const raw = await AsyncStorage.getItem('usta');
-      if (raw) setUsta(JSON.parse(raw));
+      if (raw) {
+        const u = JSON.parse(raw);
+        setUsta(u);
+        setRedakteForm({ ad: u.ad || '', soyad: u.soyad || '', email: u.email || '' });
+      }
     }
   }
 
@@ -63,6 +74,26 @@ export default function ProfilScreen({ navigation }) {
       Alert.alert('Xəta', 'Foto yüklənmədi');
     } finally {
       setFotoYuklenir(false);
+    }
+  }
+
+  async function redakteYadda() {
+    if (!redakteForm.ad.trim() || !redakteForm.soyad.trim()) {
+      Alert.alert('', 'Ad və soyad boş ola bilməz');
+      return;
+    }
+    setRedakteYuklenir(true);
+    try {
+      await api.put('/usta/profil', redakteForm);
+      const yeniUsta = { ...usta, ...redakteForm };
+      setUsta(yeniUsta);
+      await AsyncStorage.setItem('usta', JSON.stringify(yeniUsta));
+      setRedakteAcildi(false);
+      Alert.alert('', 'Məlumatlar yeniləndi');
+    } catch (err) {
+      Alert.alert('Xəta', err?.xeta || 'Yenilənmədi');
+    } finally {
+      setRedakteYuklenir(false);
     }
   }
 
@@ -180,23 +211,19 @@ export default function ProfilScreen({ navigation }) {
 
       {/* Menu */}
       <View style={[s.menyuKart, { backgroundColor: C.white }]}>
-        {MENU.map((item, i) => (
+        {[
+          { ikon: 'person-outline', ad: 'Məlumatlarımı redaktə et', rang: C.primary, onPress: () => setRedakteAcildi(true) },
+          ...STATIC_MENU.map(m => ({ ...m, onPress: () => navigation.navigate(m.nav) })),
+        ].map((item, i, arr) => (
           <View key={item.ad}>
-            <TouchableOpacity style={s.menItem} activeOpacity={0.7}
-              onPress={() => {
-                if (item.nav) {
-                  navigation.navigate(item.nav);
-                } else {
-                  Alert.alert(item.ad, 'Bu bölmə tezliklə əlavə olunacaq.');
-                }
-              }}>
+            <TouchableOpacity style={s.menItem} activeOpacity={0.7} onPress={item.onPress}>
               <View style={[s.menIkonBox, { backgroundColor: item.rang + '15' }]}>
                 <Ionicons name={item.ikon} size={20} color={item.rang} />
               </View>
               <Text style={s.menAd}>{item.ad}</Text>
               <Ionicons name="chevron-forward" size={18} color={C.textMuted} />
             </TouchableOpacity>
-            {i < MENU.length - 1 && <View style={s.xett} />}
+            {i < arr.length - 1 && <View style={s.xett} />}
           </View>
         ))}
       </View>
@@ -232,6 +259,52 @@ export default function ProfilScreen({ navigation }) {
       </TouchableOpacity>
 
       <Text style={s.versiya}>Findmas — Usta Paneli v1.0.0</Text>
+
+      {/* REDAKTƏ MODAL */}
+      <Modal visible={redakteAcildi} animationType="slide" transparent onRequestClose={() => setRedakteAcildi(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Məlumatları redaktə et</Text>
+              <TouchableOpacity onPress={() => setRedakteAcildi(false)}>
+                <Ionicons name="close" size={24} color={C.dark} />
+              </TouchableOpacity>
+            </View>
+            <Text style={s.modalLabel}>Ad</Text>
+            <TextInput
+              style={s.modalInput}
+              value={redakteForm.ad}
+              onChangeText={v => setRedakteForm(f => ({ ...f, ad: v }))}
+              placeholder="Adınız"
+            />
+            <Text style={s.modalLabel}>Soyad</Text>
+            <TextInput
+              style={s.modalInput}
+              value={redakteForm.soyad}
+              onChangeText={v => setRedakteForm(f => ({ ...f, soyad: v }))}
+              placeholder="Soyadınız"
+            />
+            <Text style={s.modalLabel}>Email</Text>
+            <TextInput
+              style={s.modalInput}
+              value={redakteForm.email}
+              onChangeText={v => setRedakteForm(f => ({ ...f, email: v }))}
+              placeholder="mail@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={[s.modalBtn, redakteYuklenir && { opacity: 0.7 }]}
+              onPress={redakteYadda}
+              disabled={redakteYuklenir}
+            >
+              {redakteYuklenir
+                ? <ActivityIndicator color={C.white} />
+                : <Text style={s.modalBtnText}>Yadda saxla</Text>}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </ScrollView>
   );
 }
@@ -474,4 +547,29 @@ const s = StyleSheet.create({
     marginTop: 18,
     marginBottom: 10,
   },
+
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 22, paddingBottom: 36,
+  },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: C.dark },
+  modalLabel: { fontSize: 13, color: C.textSoft, marginBottom: 6, marginTop: 10 },
+  modalInput: {
+    borderWidth: 1.5, borderColor: C.border, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.dark,
+    backgroundColor: C.softBg,
+  },
+  modalBtn: {
+    backgroundColor: C.primary, borderRadius: 14, padding: 14,
+    alignItems: 'center', marginTop: 20,
+  },
+  modalBtnText: { color: C.white, fontWeight: '700', fontSize: 15 },
 });

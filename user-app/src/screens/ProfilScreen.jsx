@@ -302,7 +302,7 @@ export default function ProfilScreen() {
               <Ionicons name="call-outline" size={22} color={C.primary} />
               <View>
                 <Text style={s.yardimLabel}>Dəstək xətti</Text>
-                <Text style={s.yardimValue}>+994 50 000 00 00</Text>
+                <Text style={s.yardimValue}>+994 51 588 88 84</Text>
               </View>
             </View>
             <View style={s.yardimItem}>

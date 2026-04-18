@@ -23,14 +23,14 @@ export default function YardimScreen() {
 
       <Text style={[s.basliq, { marginTop: 24 }]}>Bizimlə əlaqə</Text>
 
-      <TouchableOpacity style={s.elaqeBtn} onPress={() => Linking.openURL('tel:+994501234567')} activeOpacity={0.8}>
+      <TouchableOpacity style={s.elaqeBtn} onPress={() => Linking.openURL('tel:+994515888884')} activeOpacity={0.8}>
         <Ionicons name="call-outline" size={20} color={C.primary} />
-        <Text style={s.elaqeMetn}>+994 50 123 45 67</Text>
+        <Text style={s.elaqeMetn}>+994 51 588 88 84</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={s.elaqeBtn} onPress={() => Linking.openURL('mailto:destek@ustacagir.az')} activeOpacity={0.8}>
+      <TouchableOpacity style={s.elaqeBtn} onPress={() => Linking.openURL('mailto:destek@findmas.az')} activeOpacity={0.8}>
         <Ionicons name="mail-outline" size={20} color={C.primary} />
-        <Text style={s.elaqeMetn}>destek@ustacagir.az</Text>
+        <Text style={s.elaqeMetn}>destek@findmas.az</Text>
       </TouchableOpacity>
     </ScrollView>
   );
