@@ -14,10 +14,11 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "az.ustacagir.user"
+      "bundleIdentifier": "az.findmas.user"
     },
     "android": {
-      "package": "az.ustacagir.user",
+      "package": "az.findmas.user",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 1,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {

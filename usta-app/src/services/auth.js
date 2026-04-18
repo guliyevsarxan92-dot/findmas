@@ -9,7 +9,7 @@ function getGoogleSignin() {
       const mod = require('@react-native-google-signin/google-signin');
       GoogleSignin = mod.GoogleSignin;
       GoogleSignin.configure({
-        webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+        webClientId: '682117254538-5avgsk6jv3mpnsvtuosbctkn2f7sq6ff.apps.googleusercontent.com',
       });
     } catch {
       return null;

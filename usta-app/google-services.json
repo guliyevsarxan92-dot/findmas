@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "682117254538",
+    "project_id": "findmas-f413c",
+    "storage_bucket": "findmas-f413c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:682117254538:android:20267473c19e58d6718c73",
+        "android_client_info": {
+          "package_name": "az.findmas.user"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "682117254538-5avgsk6jv3mpnsvtuosbctkn2f7sq6ff.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5eTJ-sBFmhMjRQYx3Fnt74Igzlwtc2YA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "682117254538-5avgsk6jv3mpnsvtuosbctkn2f7sq6ff.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:682117254538:android:aa986e67f6d036fd718c73",
+        "android_client_info": {
+          "package_name": "az.findmas.usta"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "682117254538-5avgsk6jv3mpnsvtuosbctkn2f7sq6ff.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5eTJ-sBFmhMjRQYx3Fnt74Igzlwtc2YA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "682117254538-5avgsk6jv3mpnsvtuosbctkn2f7sq6ff.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
