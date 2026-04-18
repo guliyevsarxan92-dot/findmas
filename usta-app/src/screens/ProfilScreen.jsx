@@ -231,7 +231,7 @@ export default function ProfilScreen({ navigation }) {
         <Ionicons name="chevron-forward" size={18} color={C.error + '80'} />
       </TouchableOpacity>
 
-      <Text style={s.versiya}>UstaX — Usta Paneli v1.0.0</Text>
+      <Text style={s.versiya}>Findmas — Usta Paneli v1.0.0</Text>
     </ScrollView>
   );
 }

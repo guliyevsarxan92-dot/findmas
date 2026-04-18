@@ -22,6 +22,7 @@ const ustaAuthCtrl = require('../controllers/ustaAuth');
 
 router.post('/istifadeci/qeydiyyat', istifadeciAuthCtrl.qeydiyyat);
 router.post('/istifadeci/giris', istifadeciAuthCtrl.giris);
+router.post('/istifadeci/google-giris', istifadeciAuthCtrl.googleGiris);
 router.put('/istifadeci/fcm-token', istifadeciAuth, istifadeciAuthCtrl.fcmTokenYenile);
 router.get('/istifadeci/profil', istifadeciAuth, istifadeciAuthCtrl.profil);
 router.put('/istifadeci/profil', istifadeciAuth, istifadeciAuthCtrl.profilYenile);
@@ -29,6 +30,7 @@ router.put('/istifadeci/profil-foto', istifadeciAuth, istifadeciAuthCtrl.profilF
 
 router.post('/usta/qeydiyyat', ustaAuthCtrl.qeydiyyat);
 router.post('/usta/giris', ustaAuthCtrl.giris);
+router.post('/usta/google-giris', ustaAuthCtrl.googleGiris);
 router.put('/usta/onlayn', ustaAuth, ustaAuthCtrl.onlaynDeyis);
 router.put('/usta/konum', ustaAuth, ustaAuthCtrl.konumYenile);
 router.put('/usta/fcm-token', ustaAuth, ustaAuthCtrl.fcmTokenYenile);

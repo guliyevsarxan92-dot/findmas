@@ -2,23 +2,29 @@ import { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView, Alert,
-  TextInput,
+  TextInput, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '../components/Button';
-import { giris } from '../services/auth';
+import { giris, googleIleGiris } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 import C from '../utils/colors';
 
 export default function GirisScreen({ navigation }) {
   const { setIsLoggedIn } = useAuth();
-  const [loginNov, setLoginNov] = useState('telefon'); // 'telefon' | 'email'
+  const [loginNov, setLoginNov] = useState('telefon');
   const [telefon, setTelefon] = useState('');
   const [email, setEmail] = useState('');
   const [sifre, setSifre] = useState('');
   const [sifreGoster, setSifreGoster] = useState(false);
   const [xeta, setXeta] = useState('');
   const [yuklenir, setYuklenir] = useState(false);
+  const [googleYuklenir, setGoogleYuklenir] = useState(false);
+
+  function telefonDeyis(v) {
+    const temiz = v.replace(/[^0-9]/g, '');
+    if (temiz.length <= 9) setTelefon(temiz);
+  }
 
   async function daxilOl() {
     const girisDeyer = loginNov === 'telefon' ? telefon.trim() : email.trim();
@@ -26,11 +32,15 @@ export default function GirisScreen({ navigation }) {
       setXeta('Bütün sahələri doldurun');
       return;
     }
+    if (loginNov === 'telefon' && telefon.length < 9) {
+      setXeta('Nömrə 9 rəqəm olmalıdır');
+      return;
+    }
     setXeta('');
     setYuklenir(true);
     try {
       const payload = loginNov === 'telefon'
-        ? { telefon: girisDeyer, sifre }
+        ? { telefon: '+994' + telefon, sifre }
         : { email: girisDeyer, sifre };
       const usta = await giris(null, null, payload);
       if (!usta.tesdiqlendi) {
@@ -61,10 +71,7 @@ export default function GirisScreen({ navigation }) {
       >
         {/* ---- HERO ---- */}
         <View style={s.hero}>
-          <View style={s.logoBox}>
-            <Ionicons name="construct" size={44} color={C.white} />
-          </View>
-          <Text style={s.brand}>UstaX</Text>
+          <Image source={require('../../assets/findmas-logo.png')} style={s.logo} resizeMode="contain" />
           <Text style={s.subtitle}>Usta panelinə daxil ol</Text>
         </View>
 
@@ -108,12 +115,12 @@ export default function GirisScreen({ navigation }) {
                 <TextInput
                   style={s.textInput}
                   value={telefon}
-                  onChangeText={setTelefon}
-                  placeholder="Telefon nömrəsi"
+                  onChangeText={telefonDeyis}
+                  placeholder="XX XXX XX XX"
                   placeholderTextColor={C.textMuted}
                   keyboardType="phone-pad"
+                  maxLength={9}
                   returnKeyType="next"
-                  autoComplete="tel"
                 />
               </View>
             </View>
@@ -153,6 +160,45 @@ export default function GirisScreen({ navigation }) {
 
           <Button title="Daxil ol" onPress={daxilOl} loading={yuklenir} style={s.submitBtn} />
 
+          <View style={s.ayirici}>
+            <View style={s.xett} />
+            <Text style={s.ayiriciMetn}>və ya</Text>
+            <View style={s.xett} />
+          </View>
+
+          <TouchableOpacity
+            style={s.googleBtn}
+            onPress={async () => {
+              setXeta('');
+              setGoogleYuklenir(true);
+              try {
+                const result = await googleIleGiris();
+                if (!result.usta.tesdiqlendi) {
+                  Alert.alert(
+                    'Hesab gözləyir',
+                    'Hesabınız hələ admin tərəfindən təsdiqlənməyib.',
+                    [{ text: 'Anladım', onPress: () => setIsLoggedIn(true) }]
+                  );
+                } else {
+                  setIsLoggedIn(true);
+                }
+              } catch (err) {
+                if (err?.kateqoriya_lazim) {
+                  navigation.navigate('Qeydiyyat', { google: true });
+                } else if (err?.code !== 'SIGN_IN_CANCELLED') {
+                  setXeta(err.xeta || 'Google ilə giriş alınmadı');
+                }
+              } finally {
+                setGoogleYuklenir(false);
+              }
+            }}
+            disabled={googleYuklenir}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="logo-google" size={20} color="#DB4437" />
+            <Text style={s.googleMetn}>{googleYuklenir ? 'Gözləyin...' : 'Google ilə daxil ol'}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={s.linkWrap}
             onPress={() => navigation.navigate('Qeydiyyat')}
@@ -170,50 +216,23 @@ export default function GirisScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.white,
-  },
-  scroll: {
-    flexGrow: 1,
-    backgroundColor: C.white,
-  },
+  container: { flex: 1, backgroundColor: C.white },
+  scroll: { flexGrow: 1, backgroundColor: C.white },
 
-  /* --- Hero --- */
   hero: {
     alignItems: 'center',
-    paddingTop: 80,
-    paddingBottom: 48,
+    paddingTop: 60,
+    paddingBottom: 20,
     backgroundColor: C.white,
   },
-  logoBox: {
-    width: 88,
-    height: 88,
-    borderRadius: 26,
-    backgroundColor: C.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: C.primary,
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 12,
-  },
-  brand: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: C.dark,
-    letterSpacing: -1,
-  },
+  logo: { width: 180, height: 180 },
   subtitle: {
     fontSize: 15,
     color: C.textSoft,
-    marginTop: 8,
+    marginTop: 4,
     fontWeight: '500',
   },
 
-  /* --- Card --- */
   card: {
     flex: 1,
     backgroundColor: C.white,
@@ -222,24 +241,12 @@ const s = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  /* --- Error --- */
   xetaBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: '#FECACA',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12,
+    marginBottom: 18, borderWidth: 1, borderColor: '#FECACA',
   },
-  xetaMetn: {
-    flex: 1,
-    color: C.error,
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  xetaMetn: { flex: 1, color: C.error, fontSize: 14, fontWeight: '500' },
 
   toggleRow: {
     flexDirection: 'row', gap: 8,
@@ -255,11 +262,11 @@ const s = StyleSheet.create({
 
   phoneRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   prefixBox: {
-    height: 54, borderRadius: 14, backgroundColor: C.softBg,
-    borderWidth: 1.5, borderColor: C.border,
-    paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center',
+    height: 54, borderRadius: 14, backgroundColor: C.primary + '10',
+    borderWidth: 1.5, borderColor: C.primary + '30',
+    paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center',
   },
-  prefixText: { fontSize: 15, fontWeight: '700', color: C.dark },
+  prefixText: { fontSize: 15, fontWeight: '700', color: C.primary },
   phoneInputBox: {
     flex: 1, height: 54, borderRadius: 14, backgroundColor: C.softBg,
     borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 16, justifyContent: 'center',
@@ -274,7 +281,16 @@ const s = StyleSheet.create({
   textInput: { fontSize: 15, fontWeight: '500', color: C.dark, flex: 1 },
 
   submitBtn: { height: 56, borderRadius: 14 },
-  linkWrap: { marginTop: 22, alignItems: 'center' },
+  ayirici: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
+  xett: { flex: 1, height: 1, backgroundColor: C.border },
+  ayiriciMetn: { marginHorizontal: 14, fontSize: 13, color: C.textMuted, fontWeight: '500' },
+  googleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    height: 52, borderRadius: 14, backgroundColor: C.white,
+    borderWidth: 1.5, borderColor: C.border,
+  },
+  googleMetn: { fontSize: 15, fontWeight: '600', color: C.dark },
+  linkWrap: { marginTop: 22, alignItems: 'center', paddingBottom: 30 },
   linkText: { fontSize: 14, color: C.textSoft },
   linkBold: { color: C.primary, fontWeight: '700' },
 });

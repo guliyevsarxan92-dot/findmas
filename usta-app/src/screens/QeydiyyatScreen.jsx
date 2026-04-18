@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ScrollView, Alert,
+  KeyboardAvoidingView, Platform, ScrollView, Alert, TextInput,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Input from '../components/Input';
@@ -30,16 +30,25 @@ function KatIkon({ ikon, lib, color, size = 20 }) {
 export default function QeydiyyatScreen({ navigation }) {
   const { setIsLoggedIn } = useAuth();
   const [addim, setAddim] = useState(1);
-  const [form, setForm] = useState({ ad: '', soyad: '', telefon: '', sifre: '', kateqoriya: '' });
+  const [form, setForm] = useState({ ad: '', soyad: '', telefon: '', email: '', sifre: '', kateqoriya: '' });
+  const [sertlerQebul, setSertlerQebul] = useState(false);
+  const [sifreGoster, setSifreGoster] = useState(false);
   const [xeta, setXeta] = useState('');
   const [yuklenir, setYuklenir] = useState(false);
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
+  function telefonDeyis(v) {
+    const temiz = v.replace(/[^0-9]/g, '');
+    if (temiz.length <= 9) set('telefon', temiz);
+  }
+
   function novbeti() {
-    if (!form.ad || !form.soyad || !form.telefon || !form.sifre) {
+    if (!form.ad || !form.soyad || !form.telefon || !form.email || !form.sifre) {
       setXeta('Bütün sahələri doldurun'); return;
     }
+    if (form.telefon.length < 9) { setXeta('Nömrə 9 rəqəm olmalıdır'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setXeta('Düzgün email daxil edin'); return; }
     if (form.sifre.length < 6) { setXeta('Şifrə ən az 6 simvol'); return; }
     setXeta('');
     setAddim(2);
@@ -47,10 +56,11 @@ export default function QeydiyyatScreen({ navigation }) {
 
   async function qeydiyyatEt() {
     if (!form.kateqoriya) { setXeta('Kateqoriya seçin'); return; }
+    if (!sertlerQebul) { setXeta('Xidmət şərtlərini qəbul etməlisiniz'); return; }
     setXeta('');
     setYuklenir(true);
     try {
-      const data = await qeydiyyat(form);
+      const data = await qeydiyyat({ ...form, telefon: '+994' + form.telefon });
       Alert.alert(
         'Qeydiyyat tamamlandı',
         data.mesaj || 'Hesabınız yaradıldı.',
@@ -64,7 +74,7 @@ export default function QeydiyyatScreen({ navigation }) {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: C.bg }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
       <ScrollView
         style={{ backgroundColor: C.bg }}
         contentContainerStyle={s.wrap}
@@ -129,22 +139,50 @@ export default function QeydiyyatScreen({ navigation }) {
                   />
                 </View>
               </View>
+
+              <Text style={s.label}>Telefon nömrəsi</Text>
+              <View style={s.phoneRow}>
+                <View style={s.prefixBox}>
+                  <Text style={s.prefixText}>+994</Text>
+                </View>
+                <View style={s.phoneInputBox}>
+                  <TextInput
+                    style={s.textInput}
+                    value={form.telefon}
+                    onChangeText={telefonDeyis}
+                    placeholder="XX XXX XX XX"
+                    placeholderTextColor={C.textMuted}
+                    keyboardType="phone-pad"
+                    maxLength={9}
+                  />
+                </View>
+              </View>
+
               <Input
-                label="Telefon"
-                value={form.telefon}
-                onChangeText={v => set('telefon', v)}
-                placeholder="+994 XX XXX XX XX"
-                keyboardType="phone-pad"
-                icon={<Ionicons name="call-outline" size={20} color={C.textMuted} />}
+                label="E-mail"
+                value={form.email}
+                onChangeText={v => set('email', v)}
+                placeholder="example@mail.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                icon={<Ionicons name="mail-outline" size={20} color={C.textMuted} />}
               />
-              <Input
-                label="Şifrə"
-                value={form.sifre}
-                onChangeText={v => set('sifre', v)}
-                placeholder="Ən az 6 simvol"
-                secureTextEntry
-                icon={<Ionicons name="lock-closed-outline" size={20} color={C.textMuted} />}
-              />
+
+              <Text style={s.label}>Şifrə</Text>
+              <View style={s.sifreRow}>
+                <Ionicons name="lock-closed-outline" size={18} color={C.textMuted} style={{ marginRight: 10 }} />
+                <TextInput
+                  style={s.sifreInput}
+                  value={form.sifre}
+                  onChangeText={v => set('sifre', v)}
+                  placeholder="Ən az 6 simvol"
+                  placeholderTextColor={C.textMuted}
+                  secureTextEntry={!sifreGoster}
+                />
+                <TouchableOpacity onPress={() => setSifreGoster(v => !v)} activeOpacity={0.7}>
+                  <Ionicons name={sifreGoster ? 'eye-off-outline' : 'eye-outline'} size={20} color={C.textMuted} />
+                </TouchableOpacity>
+              </View>
               <Button
                 title="Növbəti"
                 onPress={novbeti}
@@ -180,11 +218,23 @@ export default function QeydiyyatScreen({ navigation }) {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {/* Xidmət şərtləri */}
+              <TouchableOpacity style={s.sertlerRow} onPress={() => setSertlerQebul(v => !v)} activeOpacity={0.7}>
+                <View style={[s.checkbox, sertlerQebul && s.checkboxAktiv]}>
+                  {sertlerQebul && <Ionicons name="checkmark" size={14} color={C.white} />}
+                </View>
+                <Text style={s.sertlerMetn}>
+                  <Text style={s.sertlerLink}>Xidmət şərtləri</Text> və{' '}
+                  <Text style={s.sertlerLink}>Məxfilik siyasəti</Text>ni qəbul edirəm
+                </Text>
+              </TouchableOpacity>
+
               <Button
                 title="Qeydiyyatı tamamla"
                 onPress={qeydiyyatEt}
                 loading={yuklenir}
-                style={{ marginTop: 16 }}
+                style={{ marginTop: 8 }}
                 icon={<Ionicons name="checkmark-circle-outline" size={20} color={C.white} />}
               />
             </>
@@ -211,88 +261,80 @@ const s = StyleSheet.create({
     backgroundColor: C.bg,
   },
   geriBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: C.softBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: C.border,
+    width: 42, height: 42, borderRadius: 14, backgroundColor: C.softBg,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+    borderWidth: 1, borderColor: C.border,
   },
 
   addimRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   addimDaire: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
   },
   addimAktiv: { backgroundColor: C.primary },
   addimInaktiv: { backgroundColor: C.softBg, borderWidth: 1.5, borderColor: C.border },
   addimMetn: { color: C.white, fontWeight: '700', fontSize: 14 },
-  addimXett: {
-    flex: 1,
-    height: 2,
-    backgroundColor: C.border,
-    marginHorizontal: 10,
-  },
+  addimXett: { flex: 1, height: 2, backgroundColor: C.border, marginHorizontal: 10 },
 
   baslik: { fontSize: 28, fontWeight: '800', color: C.dark, letterSpacing: -0.5 },
   alt: { fontSize: 14, color: C.textSoft, marginTop: 6 },
 
   kart: {
-    flex: 1,
-    backgroundColor: C.white,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 28,
-    paddingTop: 32,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
+    flex: 1, backgroundColor: C.white,
+    borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    padding: 28, paddingTop: 32,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 20,
+    shadowOffset: { width: 0, height: -4 }, elevation: 8,
   },
 
   xetaBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#FECACA',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12,
+    marginBottom: 16, borderWidth: 1, borderColor: '#FECACA',
   },
   xetaMetn: { color: C.error, fontSize: 14, fontWeight: '500', flex: 1 },
 
   ciftRow: { flexDirection: 'row', gap: 12 },
 
+  label: { fontSize: 14, fontWeight: '600', color: C.dark, marginBottom: 6 },
+  phoneRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  prefixBox: {
+    height: 52, borderRadius: 14, backgroundColor: C.primary + '10',
+    borderWidth: 1.5, borderColor: C.primary + '30',
+    paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center',
+  },
+  prefixText: { fontSize: 15, fontWeight: '700', color: C.primary },
+  phoneInputBox: {
+    flex: 1, height: 52, borderRadius: 14, backgroundColor: C.softBg,
+    borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 16, justifyContent: 'center',
+  },
+  textInput: { fontSize: 15, fontWeight: '500', color: C.dark },
+  sifreRow: {
+    flexDirection: 'row', alignItems: 'center',
+    height: 52, borderRadius: 14, backgroundColor: C.softBg,
+    borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 16, marginBottom: 16,
+  },
+  sifreInput: { flex: 1, fontSize: 15, fontWeight: '500', color: C.dark },
+
   katGrid: { gap: 10 },
   katKart: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: C.softBg,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: C.border,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.softBg, borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: C.border,
   },
   katAktiv: { borderColor: C.primary, backgroundColor: C.primaryLightBg },
-  katIkonBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  katIkonBox: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   katAd: { fontSize: 15, fontWeight: '500', color: C.textSoft, flex: 1 },
   katSecildi: { marginLeft: 'auto' },
+
+  sertlerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16, marginBottom: 4 },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxAktiv: { backgroundColor: C.primary, borderColor: C.primary },
+  sertlerMetn: { flex: 1, fontSize: 13, color: C.textSoft, lineHeight: 18 },
+  sertlerLink: { color: C.primary, fontWeight: '600' },
 
   linkWrap: { marginTop: 20, alignItems: 'center' },
   link: { fontSize: 14, color: C.textSoft },

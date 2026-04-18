@@ -130,7 +130,16 @@ const Sifaris = sequelize.define('Sifaris', {
   // Cari axtarış radiusu km (20 → 30 → 50)
   axtaris_radius: {
     type: DataTypes.INTEGER,
-    defaultValue: 20,
+    defaultValue: 10,
+  },
+  // Hazırda sifariş göndərilmiş usta (tək usta sistemi)
+  hazirki_usta_id: {
+    type: DataTypes.UUID,
+    allowNull: true,
+  },
+  hazirki_usta_vaxt: {
+    type: DataTypes.DATE,
+    allowNull: true,
   },
 }, {
   tableName: 'sifarisler',

@@ -32,7 +32,7 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 // Routes
 app.use('/api', routes);
 
-app.get('/', (req, res) => res.json({ mesaj: 'Usta Çağır API işləyir' }));
+app.get('/', (req, res) => res.json({ mesaj: 'Findmas API işləyir' }));
 
 // WebSocket — auth + otaq idarəsi
 io.use((socket, next) => {

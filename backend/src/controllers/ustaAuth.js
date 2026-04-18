@@ -174,4 +174,64 @@ async function senedlerYenile(req, res) {
   }
 }
 
-module.exports = { qeydiyyat, giris, onlaynDeyis, konumYenile, fcmTokenYenile, profil, profilFotoYenile, senedlerYenile };
+// POST /api/usta/google-giris
+async function googleGiris(req, res) {
+  try {
+    const { id_token, kateqoriya } = req.body;
+    if (!id_token) return res.status(400).json({ xeta: 'Google token göndərilməyib' });
+
+    const admin = require('firebase-admin');
+    const decoded = await admin.auth().verifyIdToken(id_token);
+    const { uid, email, name } = decoded;
+
+    let usta = await Usta.findOne({ where: { google_id: uid } });
+
+    if (!usta && email) {
+      usta = await Usta.findOne({ where: { email } });
+      if (usta) {
+        await usta.update({ google_id: uid });
+      }
+    }
+
+    if (!usta) {
+      if (!kateqoriya || !Usta.KATEQORIYALAR.includes(kateqoriya)) {
+        return res.status(400).json({ xeta: 'Kateqoriya seçilməlidir', kateqoriya_lazim: true, kateqoriyalar: Usta.KATEQORIYALAR });
+      }
+      const adParts = (name || 'Usta').split(' ');
+      usta = await Usta.create({
+        ad: adParts[0] || 'Usta',
+        soyad: adParts.slice(1).join(' ') || '',
+        telefon: `google_${uid}`,
+        email,
+        google_id: uid,
+        kateqoriya,
+        foto: decoded.picture || null,
+      });
+    }
+
+    if (usta.bloklanib) {
+      if (usta.blok_bitis && new Date(usta.blok_bitis) <= new Date()) {
+        await usta.update({ bloklanib: false, blok_bitis: null, blok_sebeb: null });
+      } else {
+        const bitis = usta.blok_bitis ? new Date(usta.blok_bitis).toLocaleDateString('az') : 'Həmişəlik';
+        return res.status(403).json({ xeta: `Hesabınız bloklanıb. Bitmə: ${bitis}`, bloklanib: true });
+      }
+    }
+
+    res.json({
+      token: tokenYarat(usta),
+      usta: {
+        id: usta.id, ad: usta.ad, soyad: usta.soyad,
+        telefon: usta.telefon, kateqoriya: usta.kateqoriya,
+        tesdiqlendi: usta.tesdiqlendi, onlayn: usta.onlayn,
+        foto: usta.foto, bloklanib: usta.bloklanib,
+        vesiqe_on: !!usta.vesiqe_on, lisenziya: !!usta.lisenziya,
+      },
+      yeni_hesab: usta.telefon?.startsWith('google_'),
+    });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+module.exports = { qeydiyyat, giris, googleGiris, onlaynDeyis, konumYenile, fcmTokenYenile, profil, profilFotoYenile, senedlerYenile };

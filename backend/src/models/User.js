@@ -27,7 +27,7 @@ const User = sequelize.define('User', {
   },
   sifre_hash: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   foto: {
     type: DataTypes.STRING,
@@ -37,6 +37,11 @@ const User = sequelize.define('User', {
   fcm_token: {
     type: DataTypes.STRING,
     allowNull: true,
+  },
+  google_id: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
   },
   aktiv: {
     type: DataTypes.BOOLEAN,

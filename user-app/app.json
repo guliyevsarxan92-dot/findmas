@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Usta Çağır",
+    "name": "Findmas",
     "slug": "usta-cagir-user",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -43,7 +43,8 @@
           "color": "#f97316"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "apiUrl": "http://192.168.52.196:3000/api",

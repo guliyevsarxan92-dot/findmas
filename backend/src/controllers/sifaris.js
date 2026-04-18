@@ -14,28 +14,29 @@ function aktivReddIds(reddSiyahi) {
   return aktivReddEdenler(reddSiyahi).map(r => r.usta_id);
 }
 
-// ── Usta-lara sifariş göndər (socket + FCM) ─────────────────────────────────
-async function ustalaraGonder(io, sifaris, ustalar) {
-  // Yeni göndərilənləri siyahıya əlavə et
+// ── Tək ustaya sifariş göndər (socket + FCM) ────────────────────────────────
+async function ustayaGonder(io, sifaris, usta) {
   const yeniGonderilenIds = [
-    ...new Set([...(sifaris.gonderilen_ustalar || []), ...ustalar.map(u => u.id)]),
+    ...new Set([...(sifaris.gonderilen_ustalar || []), usta.id]),
   ];
-  await sifaris.update({ gonderilen_ustalar: yeniGonderilenIds });
+  await sifaris.update({
+    gonderilen_ustalar: yeniGonderilenIds,
+    hazirki_usta_id: usta.id,
+    hazirki_usta_vaxt: new Date(),
+  });
 
-  for (const u of ustalar) {
-    await yeniSifarisbildiris(u, sifaris).catch(() => {});
-    if (io) {
-      io.to(`usta_${u.id}`).emit('yeni_sifaris', {
-        id: sifaris.id,
-        kateqoriya: sifaris.kateqoriya,
-        problem_tesvirr: sifaris.problem_tesvirr,
-        problem_foto: sifaris.problem_foto,
-        unvan_metn: sifaris.unvan_metn,
-        unvan_lat: sifaris.unvan_lat,
-        unvan_lng: sifaris.unvan_lng,
-        məsafe: u.məsafe,
-      });
-    }
+  await yeniSifarisbildiris(usta, sifaris).catch(() => {});
+  if (io) {
+    io.to(`usta_${usta.id}`).emit('yeni_sifaris', {
+      id: sifaris.id,
+      kateqoriya: sifaris.kateqoriya,
+      problem_tesvirr: sifaris.problem_tesvirr,
+      problem_foto: sifaris.problem_foto,
+      unvan_metn: sifaris.unvan_metn,
+      unvan_lat: sifaris.unvan_lat,
+      unvan_lng: sifaris.unvan_lng,
+      məsafe: usta.məsafe,
+    });
   }
 }
 
@@ -43,11 +44,18 @@ async function ustalaraGonder(io, sifaris, ustalar) {
 // Aktiv timerlər: sifaris_id → setTimeout ref
 const sifarisTimerlər = {};
 
-async function yenidenUstaAxtarAdaptiv(sifarisId, io) {
-  const RADISUSLAR = [20, 30, 50];
+async function novbetiUstaGonder(sifarisId, io) {
+  const RADISUSLAR = [10, 15, 20];
 
   const sifaris = await Sifaris.findByPk(sifarisId);
   if (!sifaris || sifaris.status !== 'gozlenilir') return;
+
+  // Əvvəlki ustaya vaxt bitdi bildirişi göndər
+  if (sifaris.hazirki_usta_id && io) {
+    io.to(`usta_${sifaris.hazirki_usta_id}`).emit('sifaris_vaxt_bitti', {
+      sifaris_id: sifarisId,
+    });
+  }
 
   const istisna = [
     ...(sifaris.gonderilen_ustalar || []),
@@ -60,21 +68,20 @@ async function yenidenUstaAxtarAdaptiv(sifarisId, io) {
     sifaris.kateqoriya,
     sifaris.axtaris_radius,
     istisna,
-    3,
+    1,
   );
 
   // Cari radiusda namizəd yoxdursa — radiusu genişləndir
   if (ustalar.length === 0) {
     const növbətiRadius = RADISUSLAR.find(r => r > sifaris.axtaris_radius);
     if (!növbətiRadius) {
-      // Heç bir usta tapılmadı — müştəriyə bildiriş göndər
       if (io) {
         io.to(`istifadeci_${sifaris.istifadeci_id}`).emit('usta_tapilmadi', {
           sifaris_id: sifarisId,
           mesaj: 'Yaxınlıqda uyğun usta tapılmadı. Bir az sonra yenidən cəhd edin.',
         });
       }
-      await sifaris.update({ status: 'legv_edildi', legv_sebeb: 'usta_tapilmadi' });
+      await sifaris.update({ status: 'legv_edildi', legv_sebeb: 'usta_tapilmadi', hazirki_usta_id: null, hazirki_usta_vaxt: null });
       return;
     }
     await sifaris.update({ axtaris_radius: növbətiRadius });
@@ -84,7 +91,7 @@ async function yenidenUstaAxtarAdaptiv(sifarisId, io) {
       sifaris.kateqoriya,
       növbətiRadius,
       istisna,
-      3,
+      1,
     );
   }
 
@@ -95,16 +102,16 @@ async function yenidenUstaAxtarAdaptiv(sifarisId, io) {
         mesaj: 'Yaxınlıqda uyğun usta tapılmadı.',
       });
     }
-    await sifaris.update({ status: 'legv_edildi', legv_sebeb: 'usta_tapilmadi' });
+    await sifaris.update({ status: 'legv_edildi', legv_sebeb: 'usta_tapilmadi', hazirki_usta_id: null, hazirki_usta_vaxt: null });
     return;
   }
 
-  await ustalaraGonder(io, sifaris, ustalar);
+  await ustayaGonder(io, sifaris, ustalar[0]);
 
-  // 30 saniyə sonra yenidən yoxla
+  // 30 saniyə sonra cavab verməsə → növbəti ustaya keç
   if (sifarisTimerlər[sifarisId]) clearTimeout(sifarisTimerlər[sifarisId]);
   sifarisTimerlər[sifarisId] = setTimeout(() => {
-    yenidenUstaAxtarAdaptiv(sifarisId, io).catch(() => {});
+    novbetiUstaGonder(sifarisId, io).catch(() => {});
   }, 30000);
 }
 
@@ -133,21 +140,21 @@ async function yeniSifaris(req, res) {
       alt_secim: alt_secim || null,
     });
 
-    // Fair matching: top 3 usta seç
+    // Ən uyğun 1 ustaya göndər
     const io = req.app.get('io');
     const ustalar = await uygunUstalarTap(
       parseFloat(unvan_lat), parseFloat(unvan_lng),
-      kateqoriya, 20, [], 3,
+      kateqoriya, 10, [], 1,
     );
 
     if (ustalar.length > 0) {
-      await ustalaraGonder(io, sifaris, ustalar);
+      await ustayaGonder(io, sifaris, ustalar[0]);
     }
 
-    // 30s sonra qəbul olunmadısa yenidən axtar
+    // 30s sonra cavab verməsə → növbəti ustaya keç
     if (sifarisTimerlər[sifaris.id]) clearTimeout(sifarisTimerlər[sifaris.id]);
     sifarisTimerlər[sifaris.id] = setTimeout(() => {
-      yenidenUstaAxtarAdaptiv(sifaris.id, io).catch(() => {});
+      novbetiUstaGonder(sifaris.id, io).catch(() => {});
     }, 30000);
 
     res.status(201).json({ sifaris_id: sifaris.id, status: sifaris.status });
@@ -165,17 +172,37 @@ async function sifarisQebul(req, res) {
     if (!sifaris) return res.status(404).json({ xeta: 'Sifariş tapılmadı' });
     if (sifaris.status !== 'gozlenilir') return res.status(400).json({ xeta: 'Sifariş artıq götürülüb' });
 
+    // Yalnız hazırda sifariş göndərilmiş usta qəbul edə bilər
+    if (sifaris.hazirki_usta_id !== req.usta.id) {
+      return res.status(403).json({ xeta: 'Bu sifariş sizə göndərilməyib' });
+    }
+
     // Balans yoxlaması
     const ustaBalans = await Usta.findByPk(req.usta.id, { attributes: ['balans'] });
     if (parseFloat(ustaBalans.balans) < 0) {
       return res.status(403).json({ xeta: 'Balansınız mənfidir. Sifariş qəbul etmək üçün balansı artırın.' });
     }
 
-    await sifaris.update({
-      usta_id: req.usta.id,
-      status: 'qebul_edildi',
-      qebul_tarixi: new Date(),
-    });
+    // Atomik update — race condition-u həll edir
+    const [yenilenen] = await Sifaris.update(
+      {
+        usta_id: req.usta.id,
+        status: 'qebul_edildi',
+        qebul_tarixi: new Date(),
+        hazirki_usta_id: null,
+        hazirki_usta_vaxt: null,
+      },
+      {
+        where: {
+          id: req.params.id,
+          status: 'gozlenilir',
+          hazirki_usta_id: req.usta.id,
+        },
+      }
+    );
+    if (yenilenen === 0) return res.status(400).json({ xeta: 'Sifariş artıq götürülüb' });
+
+    await sifaris.reload();
 
     // Timeri ləğv et
     if (sifarisTimerlər[sifaris.id]) {
@@ -197,13 +224,6 @@ async function sifarisQebul(req, res) {
         },
       });
 
-      // Digər göndərilmiş ustalara — sifariş artıq götürüldü
-      const diger = (sifaris.gonderilen_ustalar || []).filter(id => id !== req.usta.id);
-      for (const ustaId of diger) {
-        io.to(`usta_${ustaId}`).emit('sifaris_bashqasi_qebul_etdi', {
-          sifaris_id: sifaris.id,
-        });
-      }
     }
 
     res.json({ ok: true, status: 'qebul_edildi' });
@@ -226,13 +246,13 @@ async function sifarisRedd(req, res) {
 
     res.json({ ok: true });
 
-    // Dərhal yeni usta axtar
+    // Dərhal növbəti ustaya göndər
     const io = req.app.get('io');
     if (sifarisTimerlər[sifaris.id]) {
       clearTimeout(sifarisTimerlər[sifaris.id]);
       delete sifarisTimerlər[sifaris.id];
     }
-    yenidenUstaAxtarAdaptiv(sifaris.id, io).catch(() => {});
+    novbetiUstaGonder(sifaris.id, io).catch(() => {});
   } catch (err) {
     res.status(500).json({ xeta: err.message });
   }
@@ -422,16 +442,12 @@ async function legvEt(req, res) {
       delete sifarisTimerlər[sifaris.id];
     }
 
-    // Əlaqəli ustalara bildiriş göndər (rədd edənlər istisna — onlar artıq bu sifarişlə bağlı deyil)
+    // Aktiv ustaya bildiriş göndər
     const io = req.app.get('io');
     if (io) {
-      const reddEdenler = new Set(aktivReddIds(sifaris.redd_eden_ustalar));
-      const bildirilecek = new Set(
-        (sifaris.gonderilen_ustalar || []).filter(id => !reddEdenler.has(id))
-      );
-      if (sifaris.usta_id) bildirilecek.add(sifaris.usta_id);
-      for (const uId of bildirilecek) {
-        io.to(`usta_${uId}`).emit('sifaris_legv_edildi', {
+      const bildirilecekId = sifaris.usta_id || sifaris.hazirki_usta_id;
+      if (bildirilecekId) {
+        io.to(`usta_${bildirilecekId}`).emit('sifaris_legv_edildi', {
           sifaris_id: sifaris.id,
           mesaj: 'Müştəri sifarişi ləğv etdi',
         });
@@ -484,8 +500,8 @@ async function ustaLegvEt(req, res) {
       });
     }
 
-    // Dərhal yeni usta axtar
-    yenidenUstaAxtarAdaptiv(sifaris.id, io).catch(() => {});
+    // Dərhal növbəti ustaya göndər
+    novbetiUstaGonder(sifaris.id, io).catch(() => {});
 
     res.json({ ok: true });
   } catch (err) {

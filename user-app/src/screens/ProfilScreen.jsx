@@ -184,7 +184,7 @@ export default function ProfilScreen() {
         <Text style={s.cixisMetn}>Hesabdan çıx</Text>
       </TouchableOpacity>
 
-      <Text style={s.versiya}>UstaX v1.0.0</Text>
+      <Text style={s.versiya}>Findmas v1.0.0</Text>
 
       {/* REDAKTƏ MODAL */}
       <Modal visible={redakteAcildi} animationType="slide" transparent onRequestClose={() => setRedakteAcildi(false)}>

@@ -119,4 +119,47 @@ async function profilFotoYenile(req, res) {
   });
 }
 
-module.exports = { qeydiyyat, giris, fcmTokenYenile, profil, profilYenile, profilFotoYenile };
+// POST /api/istifadeci/google-giris
+async function googleGiris(req, res) {
+  try {
+    const { id_token } = req.body;
+    if (!id_token) return res.status(400).json({ xeta: 'Google token göndərilməyib' });
+
+    const admin = require('firebase-admin');
+    const decoded = await admin.auth().verifyIdToken(id_token);
+    const { uid, email, name } = decoded;
+
+    let user = await User.findOne({ where: { google_id: uid } });
+
+    if (!user && email) {
+      user = await User.findOne({ where: { email } });
+      if (user) {
+        await user.update({ google_id: uid });
+      }
+    }
+
+    if (!user) {
+      const adParts = (name || 'İstifadəçi').split(' ');
+      user = await User.create({
+        ad: adParts[0] || 'İstifadəçi',
+        soyad: adParts.slice(1).join(' ') || '',
+        telefon: `google_${uid}`,
+        email,
+        google_id: uid,
+        foto: decoded.picture || null,
+      });
+    }
+
+    if (!user.aktiv) return res.status(403).json({ xeta: 'Hesabınız bloklanıb' });
+
+    res.json({
+      token: tokenYarat(user),
+      istifadeci: { id: user.id, ad: user.ad, soyad: user.soyad, telefon: user.telefon, foto: user.foto, email: user.email },
+      yeni_hesab: user.telefon?.startsWith('google_'),
+    });
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
+module.exports = { qeydiyyat, giris, googleGiris, fcmTokenYenile, profil, profilYenile, profilFotoYenile };
