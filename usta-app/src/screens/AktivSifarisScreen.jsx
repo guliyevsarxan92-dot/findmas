@@ -111,6 +111,7 @@ export default function AktivSifarisScreen({ navigation }) {
   const [legvSebeb, setLegvSebeb] = useState('');
   const [legvYuklenir, setLegvYuklenir] = useState(false);
   const [bitirilir, setBitirilir] = useState(false);
+  const [yeniMesaj, setYeniMesaj] = useState(false);
   const socketRef                 = useRef(null);
   const mapRef                    = useRef(null);
 
@@ -142,7 +143,7 @@ export default function AktivSifarisScreen({ navigation }) {
       setUstaLoc({ latitude: parseFloat(lat), longitude: parseFloat(lng) });
     });
     socket.on('yeni_mesaj', () => {
-      // Mesaj bildirişi — AktivSifaris ekranında aktivdirsə Chat-da göstəriləcək
+      setYeniMesaj(true);
     });
   }
 
@@ -173,7 +174,10 @@ export default function AktivSifarisScreen({ navigation }) {
   }
 
   function mesajYaz() {
-    if (sifaris) navigation.navigate('Chat', { sifaris_id: sifaris.id });
+    if (sifaris) {
+      setYeniMesaj(false);
+      navigation.navigate('Chat', { sifaris_id: sifaris.id });
+    }
   }
 
   async function isiBitir() {
@@ -346,7 +350,10 @@ export default function AktivSifarisScreen({ navigation }) {
             </Text>
           </View>
           <TouchableOpacity style={s.chatBtn} onPress={mesajYaz} activeOpacity={0.8}>
-            <Ionicons name="chatbubble-outline" size={20} color={C.dark} />
+            <View>
+              <Ionicons name="chatbubble-outline" size={20} color={C.dark} />
+              {yeniMesaj && <View style={s.mesajBadge} />}
+            </View>
             <Text style={s.chatBtnText}>Mesaj yaz</Text>
           </TouchableOpacity>
         </View>
@@ -598,6 +605,17 @@ const s = StyleSheet.create({
     borderColor: C.border,
   },
   chatBtnText: { fontSize: 11, fontWeight: '600', color: C.darkSoft },
+  mesajBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: C.white,
+  },
 
   // ── separator ──
   sep: {

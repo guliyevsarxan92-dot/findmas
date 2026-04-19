@@ -45,6 +45,7 @@ export default function AktivSifarisScreen({ navigation }) {
   const [ustaLoc, setUstaLoc] = useState(null);
   const [secilmisReytinq, setSecilmisReytinq] = useState(0);
   const [reytinqYuklenir, setReytinqYuklenir] = useState(false);
+  const [yeniMesaj, setYeniMesaj] = useState(false);
   const socketRef = useRef(null);
   const mapRef = useRef(null);
 
@@ -85,6 +86,7 @@ export default function AktivSifarisScreen({ navigation }) {
       socket.on('yeni_mesaj', () => {
         Vibration.vibrate(200);
         mesajSesi();
+        setYeniMesaj(true);
       });
 
       socket.on('usta_yeniden_axtarilir', ({ sifaris_id, mesaj }) => {
@@ -212,9 +214,12 @@ export default function AktivSifarisScreen({ navigation }) {
             </TouchableOpacity>
             <TouchableOpacity
               style={s.outlineBtn}
-              onPress={() => navigation.navigate('Chat', { sifaris_id: sifaris.id })}
+              onPress={() => { setYeniMesaj(false); navigation.navigate('Chat', { sifaris_id: sifaris.id }); }}
               activeOpacity={0.7}>
-              <Ionicons name="chatbubble-outline" size={18} color={C.textSoft} />
+              <View>
+                <Ionicons name="chatbubble-outline" size={18} color={C.textSoft} />
+                {yeniMesaj && <View style={s.mesajBadge} />}
+              </View>
               <Text style={s.outlineBtnText}>Mesaj yaz</Text>
             </TouchableOpacity>
           </View>
@@ -283,9 +288,12 @@ export default function AktivSifarisScreen({ navigation }) {
 
             <TouchableOpacity
               style={s.outlineBtn}
-              onPress={() => navigation.navigate('Chat', { sifaris_id: sifaris.id })}
+              onPress={() => { setYeniMesaj(false); navigation.navigate('Chat', { sifaris_id: sifaris.id }); }}
               activeOpacity={0.7}>
-              <Ionicons name="chatbubble-outline" size={18} color={C.textSoft} />
+              <View>
+                <Ionicons name="chatbubble-outline" size={18} color={C.textSoft} />
+                {yeniMesaj && <View style={s.mesajBadge} />}
+              </View>
               <Text style={s.outlineBtnText}>Mesaj yaz</Text>
             </TouchableOpacity>
           </View>
@@ -487,6 +495,17 @@ const s = StyleSheet.create({
     backgroundColor: '#FFF5F5',
   },
 
+  mesajBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: C.white,
+  },
   legvTextBtn: {
     flexDirection: 'row',
     alignItems: 'center',
