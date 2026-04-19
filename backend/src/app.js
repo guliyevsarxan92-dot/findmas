@@ -77,7 +77,32 @@ io.on('connection', (socket) => {
 // Verilənlər bazasına qoşul və serveri başlat
 const PORT = process.env.PORT || 3000;
 
-sequelize.sync({ alter: process.env.NODE_ENV === 'development' }).then(() => {
+async function miqrasiya() {
+  try {
+    // ENUM → VARCHAR miqrasiyası
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE ustalar ALTER COLUMN kateqoriya TYPE VARCHAR(255) USING kateqoriya::VARCHAR(255);
+      EXCEPTION WHEN others THEN NULL;
+      END $$;
+    `).catch(() => {});
+    await sequelize.query(`DROP TYPE IF EXISTS "enum_ustalar_kateqoriya" CASCADE;`).catch(() => {});
+
+    // Mövcud ustaların kateqoriyalar/aktiv_kateqoriyalar sahələrini doldur
+    await sequelize.query(`
+      UPDATE ustalar
+      SET kateqoriyalar = ARRAY[kateqoriya],
+          aktiv_kateqoriyalar = ARRAY[kateqoriya]
+      WHERE kateqoriya IS NOT NULL
+        AND (kateqoriyalar IS NULL OR kateqoriyalar = '{}');
+    `).catch(() => {});
+  } catch (err) {
+    console.warn('Miqrasiya xəbərdarlığı:', err.message);
+  }
+}
+
+const syncOptions = process.env.NODE_ENV === 'development' ? { alter: true } : {};
+miqrasiya().then(() => sequelize.sync(syncOptions)).then(() => {
   console.log('Verilənlər bazası hazır');
   fcm.init();
   server.listen(PORT, () => console.log(`Server port ${PORT}-də işləyir`));

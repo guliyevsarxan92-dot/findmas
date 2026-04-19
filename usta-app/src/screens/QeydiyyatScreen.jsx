@@ -27,7 +27,7 @@ export default function QeydiyyatScreen({ navigation }) {
   const [yuklenir, setYuklenir] = useState(false);
 
   useEffect(() => {
-    api.get('/xidmetler').then(({ data }) => setXidmetler(data || [])).catch(() => {});
+    api.get('/xidmetler').then(({ data }) => setXidmetler(data.xidmetler || data || [])).catch(() => {});
   }, []);
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }

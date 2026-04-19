@@ -57,7 +57,7 @@ export default function ProfilScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => {
     ustaNuYukle();
-    api.get('/xidmetler').then(({ data }) => setXidmetler(data || [])).catch(() => {});
+    api.get('/xidmetler').then(({ data }) => setXidmetler(data.xidmetler || data || [])).catch(() => {});
   }, []));
 
   async function fotoSec() {
