@@ -100,12 +100,16 @@ export default function SifarisVerScreen({ route, navigation }) {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
+      quality: 0.5,
       allowsMultipleSelection: true,
       selectionLimit: 3 - fotolar.length,
+      base64: true,
     });
     if (!result.canceled) {
-      setFotolar(prev => [...prev, ...result.assets.map(a => a.uri)].slice(0, 3));
+      const yeniFotolar = result.assets.map(a =>
+        a.base64 ? `data:image/jpeg;base64,${a.base64}` : a.uri
+      );
+      setFotolar(prev => [...prev, ...yeniFotolar].slice(0, 3));
     }
   }
 

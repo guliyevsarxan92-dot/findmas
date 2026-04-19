@@ -37,7 +37,7 @@ function MainTabs() {
     },
     tabBarActiveTintColor: C.primary,
     tabBarInactiveTintColor: C.textMuted,
-    tabBarShowLabel: false,
+    tabBarShowLabel: true,
     headerShown: false,
   };
   return (
@@ -46,6 +46,7 @@ function MainTabs() {
         name="Ana"
         component={AnaScreen}
         options={{
+          tabBarLabel: 'Ana səhifə',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -55,6 +56,7 @@ function MainTabs() {
         name="Tarixce"
         component={TarixceScreen}
         options={{
+          tabBarLabel: 'Tarixçə',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" size={size} color={color} />
           ),
@@ -64,6 +66,7 @@ function MainTabs() {
         name="Profil"
         component={ProfilScreen}
         options={{
+          tabBarLabel: 'Profil',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),

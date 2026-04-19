@@ -314,7 +314,7 @@ export default function AktivSifarisScreen({ navigation }) {
         <ScrollView style={{ maxHeight: SCREEN_H * 0.55 }} showsVerticalScrollIndicator={false} bounces={false}>
 
         {/* Section label */}
-        <Text style={s.sectionLabel}>Customer Info</Text>
+        <Text style={s.sectionLabel}>Müştəri məlumatları</Text>
 
         {/* Customer info row */}
         <View style={s.custRow}>
@@ -328,7 +328,7 @@ export default function AktivSifarisScreen({ navigation }) {
                   : '4.8'}
               </Text>
             </View>
-            <Text style={s.rowLabel}>Masked Phone</Text>
+            <Text style={s.rowLabel}>Telefon</Text>
             <Text style={s.maskedPhone}>{maskedPhone}</Text>
           </View>
           <TouchableOpacity style={s.callBtn} onPress={zengVur} activeOpacity={0.8}>
@@ -340,7 +340,7 @@ export default function AktivSifarisScreen({ navigation }) {
         {/* Address row */}
         <View style={s.addrRow}>
           <View style={s.addrMid}>
-            <Text style={s.rowLabel}>Address</Text>
+            <Text style={s.rowLabel}>Ünvan</Text>
             <Text style={s.addrText} numberOfLines={1}>
               {sifaris.unvan_metn || 'Müştəri ünvanı'}
             </Text>
@@ -354,7 +354,7 @@ export default function AktivSifarisScreen({ navigation }) {
         {/* Problem description */}
         {sifaris.problem_tesvirr ? (
           <View style={s.problemBox}>
-            <Text style={s.rowLabel}>Problem</Text>
+            <Text style={s.rowLabel}>Problem təsviri</Text>
             <Text style={s.problemMetn}>{sifaris.problem_tesvirr}</Text>
           </View>
         ) : null}

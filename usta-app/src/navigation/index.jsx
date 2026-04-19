@@ -48,7 +48,7 @@ function MainTabs() {
         name="Ana"
         component={AnaScreen}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: 'Ana səhifə',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="map-outline" size={size} color={color} />
           ),
@@ -58,7 +58,7 @@ function MainTabs() {
         name="Qazanc"
         component={QazancScreen}
         options={{
-          tabBarLabel: 'Orders',
+          tabBarLabel: 'Sifarişlər',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list-outline" size={size} color={color} />
           ),
@@ -68,7 +68,7 @@ function MainTabs() {
         name="Profil"
         component={ProfilScreen}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: 'Profil',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),

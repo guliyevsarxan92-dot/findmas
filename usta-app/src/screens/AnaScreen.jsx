@@ -31,6 +31,7 @@ export default function AnaScreen({ navigation }) {
   const [konum, setKonum] = useState(null);
   const [aktivSifaris, setAktivSifaris] = useState(null);
   const [toggling, setToggling] = useState(false);
+  const [gunlukQazanc, setGunlukQazanc] = useState('0.00');
 
   const socketRef = useRef(null);
 
@@ -53,6 +54,9 @@ export default function AnaScreen({ navigation }) {
         });
         setOnlayn(data.onlayn || false);
       }
+    }).catch(() => {});
+    api.get('/usta/qazanc').then(({ data }) => {
+      if (data?.gunluk) setGunlukQazanc(parseFloat(data.gunluk.qazanc || 0).toFixed(2));
     }).catch(() => {});
   }, []));
 
@@ -208,7 +212,6 @@ export default function AnaScreen({ navigation }) {
 
   /* ─── Derived ────────────────────────────────────────────── */
   const basSehri = ((usta?.ad?.[0] || '') + (usta?.soyad?.[0] || '')).toUpperCase();
-  const qazanc = parseFloat(usta?.umuml_qazanc ?? 0).toFixed(2);
   const markerCoord = konum || BAKU;
 
   /* ─── Swipe Toggle ─────────────────────────────────────── */
@@ -279,7 +282,7 @@ export default function AnaScreen({ navigation }) {
     outputRange: ['#3a3a3c', C.primary],
   });
 
-  const slideLabel = onlayn ? 'Online' : 'Offline';
+  const slideLabel = onlayn ? 'Onlayn' : 'Oflayn';
 
   /* ─── Render ─────────────────────────────────────────────── */
   return (
@@ -392,7 +395,7 @@ export default function AnaScreen({ navigation }) {
         activeOpacity={0.85}
       >
         <Text style={s.earningsCaption}>Bugünkü qazanc  →</Text>
-        <Text style={s.earningsAmount}>₼ {qazanc}</Text>
+        <Text style={s.earningsAmount}>₼ {gunlukQazanc}</Text>
       </TouchableOpacity>
 
     </View>
