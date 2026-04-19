@@ -27,26 +27,38 @@ export default function ProfilScreen({ navigation }) {
   const [usta, setUsta] = useState(null);
   const [fotoYuklenir, setFotoYuklenir] = useState(false);
   const [redakteAcildi, setRedakteAcildi] = useState(false);
-  const [redakteForm, setRedakteForm] = useState({ ad: '', soyad: '', email: '' });
+  const [redakteForm, setRedakteForm] = useState({ ad: '', soyad: '', email: '', kateqoriyalar: [], aktiv_kateqoriyalar: [] });
   const [redakteYuklenir, setRedakteYuklenir] = useState(false);
+  const [xidmetler, setXidmetler] = useState([]);
 
   async function ustaNuYukle() {
     try {
       const { data } = await api.get('/usta/profil');
       setUsta(data);
-      setRedakteForm({ ad: data.ad || '', soyad: data.soyad || '', email: data.email || '' });
+      setRedakteForm({
+        ad: data.ad || '', soyad: data.soyad || '', email: data.email || '',
+        kateqoriyalar: data.kateqoriyalar || (data.kateqoriya ? [data.kateqoriya] : []),
+        aktiv_kateqoriyalar: data.aktiv_kateqoriyalar || (data.kateqoriya ? [data.kateqoriya] : []),
+      });
       await AsyncStorage.setItem('usta', JSON.stringify(data));
     } catch {
       const raw = await AsyncStorage.getItem('usta');
       if (raw) {
         const u = JSON.parse(raw);
         setUsta(u);
-        setRedakteForm({ ad: u.ad || '', soyad: u.soyad || '', email: u.email || '' });
+        setRedakteForm({
+          ad: u.ad || '', soyad: u.soyad || '', email: u.email || '',
+          kateqoriyalar: u.kateqoriyalar || (u.kateqoriya ? [u.kateqoriya] : []),
+          aktiv_kateqoriyalar: u.aktiv_kateqoriyalar || (u.kateqoriya ? [u.kateqoriya] : []),
+        });
       }
     }
   }
 
-  useFocusEffect(useCallback(() => { ustaNuYukle(); }, []));
+  useFocusEffect(useCallback(() => {
+    ustaNuYukle();
+    api.get('/xidmetler').then(({ data }) => setXidmetler(data || [])).catch(() => {});
+  }, []));
 
   async function fotoSec() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -77,17 +89,42 @@ export default function ProfilScreen({ navigation }) {
     }
   }
 
+  function katToggle(key) {
+    setRedakteForm(f => {
+      const arr = f.kateqoriyalar || [];
+      if (arr.includes(key)) {
+        const yeni = arr.filter(k => k !== key);
+        return { ...f, kateqoriyalar: yeni, aktiv_kateqoriyalar: (f.aktiv_kateqoriyalar || []).filter(k => k !== key) };
+      }
+      if (arr.length >= 2) { Alert.alert('', 'Ən çox 2 xidmət seçə bilərsiniz'); return f; }
+      return { ...f, kateqoriyalar: [...arr, key], aktiv_kateqoriyalar: [...(f.aktiv_kateqoriyalar || []), key] };
+    });
+  }
+
+  function aktivToggle(key) {
+    setRedakteForm(f => {
+      const arr = f.aktiv_kateqoriyalar || [];
+      if (arr.includes(key)) {
+        return { ...f, aktiv_kateqoriyalar: arr.filter(k => k !== key) };
+      }
+      return { ...f, aktiv_kateqoriyalar: [...arr, key] };
+    });
+  }
+
   async function redakteYadda() {
     if (!redakteForm.ad.trim() || !redakteForm.soyad.trim()) {
       Alert.alert('', 'Ad və soyad boş ola bilməz');
       return;
     }
+    if (!redakteForm.kateqoriyalar || redakteForm.kateqoriyalar.length === 0) {
+      Alert.alert('', 'Ən azı 1 xidmət seçin');
+      return;
+    }
     setRedakteYuklenir(true);
     try {
-      await api.put('/usta/profil', redakteForm);
-      const yeniUsta = { ...usta, ...redakteForm };
-      setUsta(yeniUsta);
-      await AsyncStorage.setItem('usta', JSON.stringify(yeniUsta));
+      const { data } = await api.put('/usta/profil', redakteForm);
+      setUsta(data);
+      await AsyncStorage.setItem('usta', JSON.stringify(data));
       setRedakteAcildi(false);
       Alert.alert('', 'Məlumatlar yeniləndi');
     } catch (err) {
@@ -143,7 +180,7 @@ export default function ProfilScreen({ navigation }) {
         <View style={s.katRow}>
           <Ionicons name="construct-outline" size={14} color={C.textMuted} />
           <Text style={s.kateqoriya}>
-            {usta.kateqoriya?.charAt(0).toUpperCase() + usta.kateqoriya?.slice(1)}
+            {(usta.kateqoriyalar || [usta.kateqoriya]).filter(Boolean).map(k => k.charAt(0).toUpperCase() + k.slice(1)).join(', ')}
           </Text>
         </View>
 
@@ -271,6 +308,30 @@ export default function ProfilScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
+              {/* Xidmətlər */}
+              <Text style={s.modalLabel}>Xidmətlər (ən çox 2)</Text>
+              {xidmetler.map(x => {
+                const secildi = (redakteForm.kateqoriyalar || []).includes(x.key);
+                const aktiv = (redakteForm.aktiv_kateqoriyalar || []).includes(x.key);
+                return (
+                  <View key={x.key} style={[s.xidmetRow, secildi && s.xidmetRowSecildi]}>
+                    <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={() => katToggle(x.key)} activeOpacity={0.7}>
+                      <View style={[s.xidmetCheck, secildi && { backgroundColor: x.rang || C.primary, borderColor: x.rang || C.primary }]}>
+                        {secildi && <Ionicons name="checkmark" size={13} color={C.white} />}
+                      </View>
+                      <Text style={[s.xidmetAd, secildi && { color: C.dark, fontWeight: '600' }]}>{x.ad}</Text>
+                    </TouchableOpacity>
+                    {secildi && (
+                      <TouchableOpacity onPress={() => aktivToggle(x.key)} activeOpacity={0.7} style={[s.aktivBtn, aktiv && s.aktivBtnOn]}>
+                        <Text style={[s.aktivBtnText, aktiv && s.aktivBtnTextOn]}>{aktiv ? 'Aktiv' : 'Deaktiv'}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
+
+              <View style={{ height: 1, backgroundColor: C.border, marginVertical: 14 }} />
+
               <Text style={s.modalLabel}>Ad</Text>
               <TextInput
                 style={s.modalInput}
@@ -574,4 +635,23 @@ const s = StyleSheet.create({
     alignItems: 'center', marginTop: 20,
   },
   modalBtnText: { color: C.white, fontWeight: '700', fontSize: 15 },
+
+  xidmetRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, paddingHorizontal: 4,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  xidmetRowSecildi: { backgroundColor: C.primaryLightBg, borderRadius: 10, paddingHorizontal: 10, marginBottom: 2 },
+  xidmetCheck: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  xidmetAd: { fontSize: 14, color: C.textSoft, fontWeight: '500' },
+  aktivBtn: {
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8,
+    backgroundColor: C.softBg, borderWidth: 1, borderColor: C.border,
+  },
+  aktivBtnOn: { backgroundColor: C.primary + '15', borderColor: C.primary },
+  aktivBtnText: { fontSize: 12, fontWeight: '600', color: C.textMuted },
+  aktivBtnTextOn: { color: C.primary },
 });

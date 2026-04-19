@@ -14,10 +14,11 @@ function tokenYarat(usta, sessiya) {
 // POST /api/usta/qeydiyyat
 async function qeydiyyat(req, res) {
   try {
-    const { ad, soyad, telefon, email, sifre, kateqoriya } = req.body;
+    const { ad, soyad, telefon, email, sifre, kateqoriyalar } = req.body;
 
-    if (!Usta.KATEQORIYALAR.includes(kateqoriya)) {
-      return res.status(400).json({ xeta: 'Yanlış kateqoriya' });
+    const katArr = Array.isArray(kateqoriyalar) ? kateqoriyalar : [kateqoriyalar].filter(Boolean);
+    if (katArr.length === 0 || katArr.length > 2) {
+      return res.status(400).json({ xeta: 'Ən az 1, ən çox 2 xidmət seçin' });
     }
 
     const var_olan = await Usta.findOne({ where: { telefon } });
@@ -25,12 +26,18 @@ async function qeydiyyat(req, res) {
 
     const sifre_hash = await bcrypt.hash(sifre, 12);
     const sessiya = crypto.randomUUID();
-    const usta = await Usta.create({ ad, soyad, telefon, email, sifre_hash, kateqoriya, aktiv_sessiya: sessiya });
+    const usta = await Usta.create({
+      ad, soyad, telefon, email, sifre_hash,
+      kateqoriya: katArr[0],
+      kateqoriyalar: katArr,
+      aktiv_kateqoriyalar: katArr,
+      aktiv_sessiya: sessiya,
+    });
 
     res.status(201).json({
       mesaj: 'Qeydiyyat tamamlandı. Sənədlərinizi yükləyin, admin təsdiqini gözləyin.',
       token: tokenYarat(usta, sessiya),
-      usta: { id: usta.id, ad, soyad, telefon, kateqoriya, tesdiqlendi: false },
+      usta: { id: usta.id, ad, soyad, telefon, kateqoriyalar: katArr, tesdiqlendi: false },
     });
   } catch (err) {
     res.status(500).json({ xeta: err.message });
@@ -152,6 +159,42 @@ async function profil(req, res) {
   }
 }
 
+// PUT /api/usta/profil  — ad, soyad, email, kateqoriyalar, aktiv_kateqoriyalar yenilə
+async function profilYenile(req, res) {
+  try {
+    const { ad, soyad, email, kateqoriyalar, aktiv_kateqoriyalar } = req.body;
+    if (!ad || !soyad) return res.status(400).json({ xeta: 'Ad və soyad məcburidir' });
+
+    const update = { ad, soyad, email };
+
+    if (kateqoriyalar !== undefined) {
+      const katArr = Array.isArray(kateqoriyalar) ? kateqoriyalar : [];
+      if (katArr.length > 2) return res.status(400).json({ xeta: 'Ən çox 2 xidmət seçə bilərsiniz' });
+      update.kateqoriyalar = katArr;
+      update.kateqoriya = katArr[0] || null;
+      if (!aktiv_kateqoriyalar) {
+        update.aktiv_kateqoriyalar = katArr;
+      }
+    }
+
+    if (aktiv_kateqoriyalar !== undefined) {
+      const aktivArr = Array.isArray(aktiv_kateqoriyalar) ? aktiv_kateqoriyalar : [];
+      const usta = await Usta.findByPk(req.usta.id, { attributes: ['kateqoriyalar'] });
+      const katList = kateqoriyalar ? (Array.isArray(kateqoriyalar) ? kateqoriyalar : []) : (usta?.kateqoriyalar || []);
+      const valid = aktivArr.every(k => katList.includes(k));
+      if (!valid) return res.status(400).json({ xeta: 'Aktiv kateqoriya seçilmiş xidmətlərdən olmalıdır' });
+      update.aktiv_kateqoriyalar = aktivArr;
+      if (aktivArr.length > 0) update.kateqoriya = aktivArr[0];
+    }
+
+    await Usta.update(update, { where: { id: req.usta.id } });
+    const usta = await Usta.findByPk(req.usta.id, { attributes: { exclude: ['sifre_hash', 'fcm_token'] } });
+    res.json(usta);
+  } catch (err) {
+    res.status(500).json({ xeta: err.message });
+  }
+}
+
 // PUT /api/usta/profil-foto  — base64 şəkil yüklə
 async function profilFotoYenile(req, res) {
   try {
@@ -182,7 +225,7 @@ async function senedlerYenile(req, res) {
 // POST /api/usta/google-giris
 async function googleGiris(req, res) {
   try {
-    const { id_token, kateqoriya } = req.body;
+    const { id_token, kateqoriya, kateqoriyalar: reqKatArr } = req.body;
     if (!id_token) return res.status(400).json({ xeta: 'Google token göndərilməyib' });
 
     const { OAuth2Client } = require('google-auth-library');
@@ -204,8 +247,9 @@ async function googleGiris(req, res) {
     }
 
     if (!usta) {
-      if (!kateqoriya || !Usta.KATEQORIYALAR.includes(kateqoriya)) {
-        return res.status(400).json({ xeta: 'Kateqoriya seçilməlidir', kateqoriya_lazim: true, kateqoriyalar: Usta.KATEQORIYALAR });
+      const katArr = reqKatArr || (kateqoriya ? [kateqoriya] : []);
+      if (katArr.length === 0) {
+        return res.status(400).json({ xeta: 'Kateqoriya seçilməlidir', kateqoriya_lazim: true });
       }
       const sessiya = crypto.randomUUID();
       const adParts = (name || 'Usta').split(' ');
@@ -215,7 +259,9 @@ async function googleGiris(req, res) {
         telefon: `google_${uid}`,
         email,
         google_id: uid,
-        kateqoriya,
+        kateqoriya: katArr[0],
+        kateqoriyalar: katArr,
+        aktiv_kateqoriyalar: katArr,
         foto: payload.picture || null,
         aktiv_sessiya: sessiya,
       });
@@ -261,4 +307,4 @@ async function googleGiris(req, res) {
   }
 }
 
-module.exports = { qeydiyyat, giris, googleGiris, onlaynDeyis, konumYenile, fcmTokenYenile, profil, profilFotoYenile, senedlerYenile };
+module.exports = { qeydiyyat, giris, googleGiris, onlaynDeyis, konumYenile, fcmTokenYenile, profil, profilYenile, profilFotoYenile, senedlerYenile };

@@ -69,7 +69,7 @@ async function uygunUstalarTap(lat, lng, kateqoriya, limitKm = 20, istisnaIds = 
   const lngDelta = limitKm / (111 * Math.cos((lat * Math.PI) / 180));
 
   const where = {
-    kateqoriya,
+    aktiv_kateqoriyalar: { [Op.overlap]: [kateqoriya] },
     onlayn: true,
     tesdiqlendi: true,
     aktiv: true,

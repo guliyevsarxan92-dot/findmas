@@ -115,7 +115,14 @@ export default function Ustalar() {
                     </div>
                   </td>
                   <td>{u.telefon}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{u.kateqoriya}</td>
+                  <td style={{ textTransform: 'capitalize' }}>
+                    {(u.kateqoriyalar && u.kateqoriyalar.length > 0)
+                      ? u.kateqoriyalar.map((k, i) => {
+                          const aktiv = (u.aktiv_kateqoriyalar || []).includes(k);
+                          return <span key={k} style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 6, fontSize: 12, marginRight: 4, background: aktiv ? '#dcfce7' : '#f1f5f9', color: aktiv ? '#16a34a' : '#94a3b8', fontWeight: 500 }}>{k}</span>;
+                        })
+                      : u.kateqoriya || '—'}
+                  </td>
                   <td>
                     {(u.vesiqe_on || u.lisenziya) ? (
                       <button className="btn btn-sm" onClick={() => setSenedModal(u)} style={{ fontSize: 12, padding: '4px 10px', background: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: 6, cursor: 'pointer' }}>

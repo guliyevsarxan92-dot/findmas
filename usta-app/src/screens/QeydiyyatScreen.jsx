@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView, Alert, TextInput,
@@ -8,19 +8,8 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import { qeydiyyat } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import C from '../utils/colors';
-
-const KATEQORIYALAR = [
-  { key: 'santexnik', ikon: 'pipe-wrench', lib: 'mci', ad: 'Santexnik', rang: '#0EA5E9' },
-  { key: 'elektrik', ikon: 'flash-outline', lib: 'ion', ad: 'Elektrik', rang: '#6366F1' },
-  { key: 'qaynaqci', ikon: 'flame-outline', lib: 'ion', ad: 'Qaynaqçı', rang: '#EF4444' },
-  { key: 'duluscu', ikon: 'construct-outline', lib: 'ion', ad: 'Tikinti', rang: '#F59E0B' },
-  { key: 'boyaqci', ikon: 'color-palette-outline', lib: 'ion', ad: 'Boyaqçı', rang: '#EC4899' },
-  { key: 'ustav', ikon: 'hammer-outline', lib: 'ion', ad: 'Ustav', rang: '#8B5CF6' },
-  { key: 'kondisioner', ikon: 'snow-outline', lib: 'ion', ad: 'Kondisioner', rang: '#0EA5E9' },
-  { key: 'temizlik', ikon: 'sparkles-outline', lib: 'ion', ad: 'Təmizlik', rang: '#10B981' },
-  { key: 'diger', ikon: 'options-outline', lib: 'ion', ad: 'Digər', rang: '#94a3b8' },
-];
 
 function KatIkon({ ikon, lib, color, size = 20 }) {
   if (lib === 'mci') return <MaterialCommunityIcons name={ikon} size={size} color={color} />;
@@ -30,17 +19,31 @@ function KatIkon({ ikon, lib, color, size = 20 }) {
 export default function QeydiyyatScreen({ navigation }) {
   const { setIsLoggedIn } = useAuth();
   const [addim, setAddim] = useState(1);
-  const [form, setForm] = useState({ ad: '', soyad: '', telefon: '', email: '', sifre: '', kateqoriya: '' });
+  const [form, setForm] = useState({ ad: '', soyad: '', telefon: '', email: '', sifre: '', kateqoriyalar: [] });
+  const [xidmetler, setXidmetler] = useState([]);
   const [sertlerQebul, setSertlerQebul] = useState(false);
   const [sifreGoster, setSifreGoster] = useState(false);
   const [xeta, setXeta] = useState('');
   const [yuklenir, setYuklenir] = useState(false);
+
+  useEffect(() => {
+    api.get('/xidmetler').then(({ data }) => setXidmetler(data || [])).catch(() => {});
+  }, []);
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
   function telefonDeyis(v) {
     const temiz = v.replace(/[^0-9]/g, '');
     if (temiz.length <= 9) set('telefon', temiz);
+  }
+
+  function katToggle(key) {
+    setForm(f => {
+      const arr = f.kateqoriyalar || [];
+      if (arr.includes(key)) return { ...f, kateqoriyalar: arr.filter(k => k !== key) };
+      if (arr.length >= 2) { Alert.alert('', 'Ən çox 2 xidmət seçə bilərsiniz'); return f; }
+      return { ...f, kateqoriyalar: [...arr, key] };
+    });
   }
 
   function novbeti() {
@@ -55,7 +58,7 @@ export default function QeydiyyatScreen({ navigation }) {
   }
 
   async function qeydiyyatEt() {
-    if (!form.kateqoriya) { setXeta('Kateqoriya seçin'); return; }
+    if (form.kateqoriyalar.length === 0) { setXeta('Ən azı 1 xidmət seçin'); return; }
     if (!sertlerQebul) { setXeta('Xidmət şərtlərini qəbul etməlisiniz'); return; }
     setXeta('');
     setYuklenir(true);
@@ -90,7 +93,6 @@ export default function QeydiyyatScreen({ navigation }) {
             <Ionicons name="arrow-back" size={22} color={C.dark} />
           </TouchableOpacity>
 
-          {/* Step progress */}
           <View style={s.addimRow}>
             <View style={[s.addimDaire, s.addimAktiv]}>
               {addim > 1
@@ -103,9 +105,9 @@ export default function QeydiyyatScreen({ navigation }) {
             </View>
           </View>
 
-          <Text style={s.baslik}>{addim === 1 ? 'Şəxsi məlumatlar' : 'İxtisasınız'}</Text>
+          <Text style={s.baslik}>{addim === 1 ? 'Şəxsi məlumatlar' : 'Xidmətləriniz'}</Text>
           <Text style={s.alt}>
-            {addim === 1 ? 'Hesab məlumatlarınızı daxil edin' : 'Hansı sahədə işləyirsiniz?'}
+            {addim === 1 ? 'Hesab məlumatlarınızı daxil edin' : 'Ən çox 2 xidmət seçə bilərsiniz'}
           </Text>
         </View>
 
@@ -192,34 +194,37 @@ export default function QeydiyyatScreen({ navigation }) {
             </>
           ) : (
             <>
+              <Text style={s.secimSay}>{form.kateqoriyalar.length}/2 seçildi</Text>
               <View style={s.katGrid}>
-                {KATEQORIYALAR.map(k => (
-                  <TouchableOpacity
-                    key={k.key}
-                    style={[s.katKart, form.kateqoriya === k.key && s.katAktiv]}
-                    onPress={() => set('kateqoriya', k.key)}
-                    activeOpacity={0.75}
-                  >
-                    <View style={[
-                      s.katIkonBox,
-                      { backgroundColor: k.rang + (form.kateqoriya === k.key ? '25' : '15') },
-                    ]}>
-                      <KatIkon ikon={k.ikon} lib={k.lib} color={k.rang} size={20} />
-                    </View>
-                    <Text style={[
-                      s.katAd,
-                      form.kateqoriya === k.key && { color: C.dark, fontWeight: '700' },
-                    ]}>
-                      {k.ad}
-                    </Text>
-                    {form.kateqoriya === k.key && (
-                      <Ionicons name="checkmark-circle" size={18} color={k.rang} style={s.katSecildi} />
-                    )}
-                  </TouchableOpacity>
-                ))}
+                {xidmetler.map(k => {
+                  const secildi = form.kateqoriyalar.includes(k.key);
+                  return (
+                    <TouchableOpacity
+                      key={k.key}
+                      style={[s.katKart, secildi && s.katAktiv]}
+                      onPress={() => katToggle(k.key)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[
+                        s.katIkonBox,
+                        { backgroundColor: (k.rang || '#6366F1') + (secildi ? '25' : '15') },
+                      ]}>
+                        <KatIkon ikon={k.ikon || 'construct-outline'} lib={k.ikon_lib === 'MaterialCommunityIcons' ? 'mci' : 'ion'} color={k.rang || '#6366F1'} size={20} />
+                      </View>
+                      <Text style={[
+                        s.katAd,
+                        secildi && { color: C.dark, fontWeight: '700' },
+                      ]}>
+                        {k.ad}
+                      </Text>
+                      {secildi && (
+                        <Ionicons name="checkmark-circle" size={18} color={k.rang || C.primary} style={s.katSecildi} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              {/* Xidmət şərtləri */}
               <TouchableOpacity style={s.sertlerRow} onPress={() => setSertlerQebul(v => !v)} activeOpacity={0.7}>
                 <View style={[s.checkbox, sertlerQebul && s.checkboxAktiv]}>
                   {sertlerQebul && <Ionicons name="checkmark" size={14} color={C.white} />}
@@ -255,27 +260,19 @@ const s = StyleSheet.create({
   wrap: { flexGrow: 1, backgroundColor: C.bg },
 
   header: {
-    padding: 28,
-    paddingTop: 60,
-    paddingBottom: 32,
-    backgroundColor: C.bg,
+    padding: 28, paddingTop: 60, paddingBottom: 32, backgroundColor: C.bg,
   },
   geriBtn: {
     width: 42, height: 42, borderRadius: 14, backgroundColor: C.softBg,
     alignItems: 'center', justifyContent: 'center', marginBottom: 24,
     borderWidth: 1, borderColor: C.border,
   },
-
   addimRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  addimDaire: {
-    width: 34, height: 34, borderRadius: 17,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  addimDaire: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   addimAktiv: { backgroundColor: C.primary },
   addimInaktiv: { backgroundColor: C.softBg, borderWidth: 1.5, borderColor: C.border },
   addimMetn: { color: C.white, fontWeight: '700', fontSize: 14 },
   addimXett: { flex: 1, height: 2, backgroundColor: C.border, marginHorizontal: 10 },
-
   baslik: { fontSize: 28, fontWeight: '800', color: C.dark, letterSpacing: -0.5 },
   alt: { fontSize: 14, color: C.textSoft, marginTop: 6 },
 
@@ -286,16 +283,13 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 20,
     shadowOffset: { width: 0, height: -4 }, elevation: 8,
   },
-
   xetaBox: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12,
     marginBottom: 16, borderWidth: 1, borderColor: '#FECACA',
   },
   xetaMetn: { color: C.error, fontSize: 14, fontWeight: '500', flex: 1 },
-
   ciftRow: { flexDirection: 'row', gap: 12 },
-
   label: { fontSize: 14, fontWeight: '600', color: C.dark, marginBottom: 6 },
   phoneRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   prefixBox: {
@@ -316,6 +310,7 @@ const s = StyleSheet.create({
   },
   sifreInput: { flex: 1, fontSize: 15, fontWeight: '500', color: C.dark },
 
+  secimSay: { fontSize: 13, fontWeight: '600', color: C.primary, marginBottom: 10, textAlign: 'right' },
   katGrid: { gap: 10 },
   katKart: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -335,7 +330,6 @@ const s = StyleSheet.create({
   checkboxAktiv: { backgroundColor: C.primary, borderColor: C.primary },
   sertlerMetn: { flex: 1, fontSize: 13, color: C.textSoft, lineHeight: 18 },
   sertlerLink: { color: C.primary, fontWeight: '600' },
-
   linkWrap: { marginTop: 20, alignItems: 'center' },
   link: { fontSize: 14, color: C.textSoft },
   linkVurgu: { color: C.primary, fontWeight: '700' },

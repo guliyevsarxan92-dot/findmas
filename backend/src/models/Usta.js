@@ -51,10 +51,18 @@ const Usta = sequelize.define('Usta', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
-  // İxtisas
+  // İxtisas (köhnə — geriyə uyğunluq)
   kateqoriya: {
-    type: DataTypes.ENUM(...KATEQORIYALAR),
-    allowNull: false,
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  kateqoriyalar: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    defaultValue: [],
+  },
+  aktiv_kateqoriyalar: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    defaultValue: [],
   },
   // Sənədlər
   seriyyat_foto: {
