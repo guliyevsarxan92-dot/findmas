@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
+const { User, Usta } = require('../models');
 
 // İstifadəçi token yoxlaması
-function istifadeciAuth(req, res, next) {
+async function istifadeciAuth(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ xeta: 'Token yoxdur' });
 
@@ -10,6 +11,14 @@ function istifadeciAuth(req, res, next) {
     if (decoded.nov !== 'istifadeci') {
       return res.status(403).json({ xeta: 'İcazə yoxdur' });
     }
+
+    if (decoded.sessiya) {
+      const user = await User.findByPk(decoded.id, { attributes: ['id', 'aktiv_sessiya'] });
+      if (!user || user.aktiv_sessiya !== decoded.sessiya) {
+        return res.status(401).json({ xeta: 'Başqa cihazdan daxil olunub. Yenidən daxil olun.', sessiya_bitdi: true });
+      }
+    }
+
     req.istifadeci = decoded;
     next();
   } catch {
@@ -18,7 +27,7 @@ function istifadeciAuth(req, res, next) {
 }
 
 // Usta token yoxlaması
-function ustaAuth(req, res, next) {
+async function ustaAuth(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ xeta: 'Token yoxdur' });
 
@@ -27,6 +36,14 @@ function ustaAuth(req, res, next) {
     if (decoded.nov !== 'usta') {
       return res.status(403).json({ xeta: 'İcazə yoxdur' });
     }
+
+    if (decoded.sessiya) {
+      const usta = await Usta.findByPk(decoded.id, { attributes: ['id', 'aktiv_sessiya'] });
+      if (!usta || usta.aktiv_sessiya !== decoded.sessiya) {
+        return res.status(401).json({ xeta: 'Başqa cihazdan daxil olunub. Yenidən daxil olun.', sessiya_bitdi: true });
+      }
+    }
+
     req.usta = decoded;
     next();
   } catch {

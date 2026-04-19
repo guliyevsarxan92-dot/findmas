@@ -175,6 +175,13 @@ export default function AktivSifarisScreen({ navigation }) {
         <View style={s.bottomCard}>
           <View style={s.handle} />
 
+          <TouchableOpacity onPress={legvEt} activeOpacity={0.7} style={s.legvTextBtn}>
+            <Ionicons name="close-circle-outline" size={16} color={C.error} />
+            <Text style={s.legvTextBtnLabel}>Ləğv et</Text>
+          </TouchableOpacity>
+
+          <View style={s.separator} />
+
           <View style={s.masterRow}>
             <View style={s.avatar}>
               {usta?.ad ? (
@@ -215,12 +222,6 @@ export default function AktivSifarisScreen({ navigation }) {
           <Text style={s.etaLarge}>
             {eta || 'Usta yolda...'}
           </Text>
-
-          <View style={s.separator} />
-
-          <TouchableOpacity onPress={legvEt} activeOpacity={0.7} style={s.legvTextBtn}>
-            <Text style={s.legvTextBtnLabel}>Ləğv et</Text>
-          </TouchableOpacity>
         </View>
       </View>
     );
@@ -250,6 +251,13 @@ export default function AktivSifarisScreen({ navigation }) {
         <View style={s.bottomCard}>
           <View style={s.handle} />
 
+          {status === 'yolda' && (
+            <TouchableOpacity onPress={legvEt} activeOpacity={0.7} style={s.legvTextBtn}>
+              <Ionicons name="close-circle-outline" size={16} color={C.error} />
+              <Text style={s.legvTextBtnLabel}>Ləğv et</Text>
+            </TouchableOpacity>
+          )}
+
           <Text style={s.statusTitle}>{statusTitle}</Text>
           {sifaris.unvan_metn ? (
             <Text style={s.addressText} numberOfLines={2}>{sifaris.unvan_metn}</Text>
@@ -273,15 +281,13 @@ export default function AktivSifarisScreen({ navigation }) {
               <Text style={s.outlineBtnText}>Əlaqə</Text>
             </TouchableOpacity>
 
-            {status === 'yolda' && (
-              <TouchableOpacity
-                style={[s.outlineBtn, s.legvOutline]}
-                onPress={legvEt}
-                activeOpacity={0.7}>
-                <Ionicons name="close-outline" size={18} color={C.error} />
-                <Text style={[s.outlineBtnText, { color: C.error }]}>Ləğv et</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={s.outlineBtn}
+              onPress={() => navigation.navigate('Chat', { sifaris_id: sifaris.id })}
+              activeOpacity={0.7}>
+              <Ionicons name="chatbubble-outline" size={18} color={C.textSoft} />
+              <Text style={s.outlineBtnText}>Mesaj yaz</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -482,13 +488,17 @@ const s = StyleSheet.create({
   },
 
   legvTextBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    marginBottom: 8,
   },
   legvTextBtnLabel: {
     fontSize: 14,
-    color: C.textMuted,
-    fontWeight: '500',
+    color: C.error,
+    fontWeight: '600',
   },
 
   primaryBtn: {

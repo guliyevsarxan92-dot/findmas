@@ -1,10 +1,11 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { Usta } = require('../models');
 
-function tokenYarat(usta) {
+function tokenYarat(usta, sessiya) {
   return jwt.sign(
-    { id: usta.id, nov: 'usta', telefon: usta.telefon },
+    { id: usta.id, nov: 'usta', telefon: usta.telefon, sessiya },
     process.env.JWT_SECRET,
     { expiresIn: '30d' }
   );
@@ -23,11 +24,12 @@ async function qeydiyyat(req, res) {
     if (var_olan) return res.status(400).json({ xeta: 'Bu telefon artıq qeydiyyatdadır' });
 
     const sifre_hash = await bcrypt.hash(sifre, 12);
-    const usta = await Usta.create({ ad, soyad, telefon, email, sifre_hash, kateqoriya });
+    const sessiya = crypto.randomUUID();
+    const usta = await Usta.create({ ad, soyad, telefon, email, sifre_hash, kateqoriya, aktiv_sessiya: sessiya });
 
     res.status(201).json({
       mesaj: 'Qeydiyyat tamamlandı. Sənədlərinizi yükləyin, admin təsdiqini gözləyin.',
-      token: tokenYarat(usta),
+      token: tokenYarat(usta, sessiya),
       usta: { id: usta.id, ad, soyad, telefon, kateqoriya, tesdiqlendi: false },
     });
   } catch (err) {
@@ -66,8 +68,11 @@ async function giris(req, res) {
       }
     }
 
+    const sessiya = crypto.randomUUID();
+    await usta.update({ aktiv_sessiya: sessiya });
+
     res.json({
-      token: tokenYarat(usta),
+      token: tokenYarat(usta, sessiya),
       usta: {
         id: usta.id, ad: usta.ad, soyad: usta.soyad,
         telefon, kateqoriya: usta.kateqoriya,
@@ -180,9 +185,14 @@ async function googleGiris(req, res) {
     const { id_token, kateqoriya } = req.body;
     if (!id_token) return res.status(400).json({ xeta: 'Google token göndərilməyib' });
 
-    const admin = require('firebase-admin');
-    const decoded = await admin.auth().verifyIdToken(id_token);
-    const { uid, email, name } = decoded;
+    const { OAuth2Client } = require('google-auth-library');
+    const WEB_CLIENT_ID = '682117254538-5avgsk6jv3mpnsvtuosbctkn2f7sq6ff.apps.googleusercontent.com';
+    const oauth2 = new OAuth2Client(WEB_CLIENT_ID);
+    const ticket = await oauth2.verifyIdToken({ idToken: id_token, audience: WEB_CLIENT_ID });
+    const payload = ticket.getPayload();
+    const uid = payload.sub;
+    const email = payload.email;
+    const name = payload.name;
 
     let usta = await Usta.findOne({ where: { google_id: uid } });
 
@@ -197,6 +207,7 @@ async function googleGiris(req, res) {
       if (!kateqoriya || !Usta.KATEQORIYALAR.includes(kateqoriya)) {
         return res.status(400).json({ xeta: 'Kateqoriya seçilməlidir', kateqoriya_lazim: true, kateqoriyalar: Usta.KATEQORIYALAR });
       }
+      const sessiya = crypto.randomUUID();
       const adParts = (name || 'Usta').split(' ');
       usta = await Usta.create({
         ad: adParts[0] || 'Usta',
@@ -205,7 +216,20 @@ async function googleGiris(req, res) {
         email,
         google_id: uid,
         kateqoriya,
-        foto: decoded.picture || null,
+        foto: payload.picture || null,
+        aktiv_sessiya: sessiya,
+      });
+
+      return res.json({
+        token: tokenYarat(usta, sessiya),
+        usta: {
+          id: usta.id, ad: usta.ad, soyad: usta.soyad,
+          telefon: usta.telefon, kateqoriya: usta.kateqoriya,
+          tesdiqlendi: usta.tesdiqlendi, onlayn: usta.onlayn,
+          foto: usta.foto, bloklanib: usta.bloklanib,
+          vesiqe_on: !!usta.vesiqe_on, lisenziya: !!usta.lisenziya,
+        },
+        yeni_hesab: true,
       });
     }
 
@@ -218,8 +242,11 @@ async function googleGiris(req, res) {
       }
     }
 
+    const sessiya = crypto.randomUUID();
+    await usta.update({ aktiv_sessiya: sessiya });
+
     res.json({
-      token: tokenYarat(usta),
+      token: tokenYarat(usta, sessiya),
       usta: {
         id: usta.id, ad: usta.ad, soyad: usta.soyad,
         telefon: usta.telefon, kateqoriya: usta.kateqoriya,

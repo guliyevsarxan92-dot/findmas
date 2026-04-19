@@ -127,14 +127,14 @@ export default function UstaAxtarilirScreen({ route, navigation }) {
         {/* Handle bar */}
         <View style={s.handle} />
 
+        <TouchableOpacity style={s.legvBtn} onPress={legvEt} activeOpacity={0.7}>
+          <Text style={s.legvBtnText}>Ləğv et</Text>
+        </TouchableOpacity>
+
         <Text style={s.timerText}>
           {String(deq).padStart(2, '0')}:{String(san).padStart(2, '0')}
         </Text>
         <Text style={s.timerSub}>gözləmə vaxtı</Text>
-
-        <TouchableOpacity style={s.legvBtn} onPress={legvEt} activeOpacity={0.7}>
-          <Text style={s.legvBtnText}>Ləğv et</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -214,15 +214,17 @@ const s = StyleSheet.create({
   },
   legvBtn: {
     width: '100%',
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: '#FECACA',
+    backgroundColor: '#FFF5F5',
     alignItems: 'center',
+    marginBottom: 16,
   },
   legvBtnText: {
     fontSize: 15,
     fontWeight: '600',
-    color: C.textSoft,
+    color: C.error || '#EF4444',
   },
 });

@@ -47,6 +47,10 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
+  aktiv_sessiya: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   tableName: 'istifadeciler',
   timestamps: true,

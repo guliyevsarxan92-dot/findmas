@@ -311,6 +311,7 @@ export default function AktivSifarisScreen({ navigation }) {
       {/* ── BOTTOM SHEET ────────────────────────────────────────────────── */}
       <View style={s.sheet}>
         <View style={s.handle} />
+        <ScrollView style={{ maxHeight: SCREEN_H * 0.55 }} showsVerticalScrollIndicator={false} bounces={false}>
 
         {/* Section label */}
         <Text style={s.sectionLabel}>Customer Info</Text>
@@ -370,6 +371,14 @@ export default function AktivSifarisScreen({ navigation }) {
         {/* Separator */}
         <View style={s.sep} />
 
+        {/* Usta cancel button — only before work started (yuxarıda göstərilir) */}
+        {(sifaris.status === 'qebul_edildi' || sifaris.status === 'yolda') && (
+          <TouchableOpacity style={s.legvBtn} onPress={() => setLegvModal(true)} activeOpacity={0.8}>
+            <Ionicons name="close-circle-outline" size={16} color={C.error} />
+            <Text style={s.legvBtnMetn}>Sifarişi ləğv et</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Action buttons — all 3 always shown */}
         {steps.map((step) => {
           const isDone    = step.idx < currentIdx;
@@ -414,14 +423,7 @@ export default function AktivSifarisScreen({ navigation }) {
           );
         })}
 
-        {/* Usta cancel button — only before work started */}
-        {(sifaris.status === 'qebul_edildi' || sifaris.status === 'yolda') && (
-          <TouchableOpacity style={s.legvBtn} onPress={() => setLegvModal(true)} activeOpacity={0.8}>
-            <Ionicons name="close-circle-outline" size={16} color={C.error} />
-            <Text style={s.legvBtnMetn}>Sifarişi ləğv et</Text>
-          </TouchableOpacity>
-        )}
-
+        </ScrollView>
       </View>
 
       {/* Cancel modal */}

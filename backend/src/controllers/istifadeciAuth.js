@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const path = require('path');
 const multer = require('multer');
 const { User } = require('../models');
@@ -13,9 +14,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
-function tokenYarat(user) {
+function tokenYarat(user, sessiya) {
   return jwt.sign(
-    { id: user.id, nov: 'istifadeci', telefon: user.telefon },
+    { id: user.id, nov: 'istifadeci', telefon: user.telefon, sessiya },
     process.env.JWT_SECRET,
     { expiresIn: '30d' }
   );
@@ -30,9 +31,10 @@ async function qeydiyyat(req, res) {
     if (var_olan) return res.status(400).json({ xeta: 'Bu telefon artıq qeydiyyatdadır' });
 
     const sifre_hash = await bcrypt.hash(sifre, 12);
-    const user = await User.create({ ad, soyad, telefon, email, sifre_hash });
+    const sessiya = crypto.randomUUID();
+    const user = await User.create({ ad, soyad, telefon, email, sifre_hash, aktiv_sessiya: sessiya });
 
-    res.status(201).json({ token: tokenYarat(user), istifadeci: { id: user.id, ad, soyad, telefon, email } });
+    res.status(201).json({ token: tokenYarat(user, sessiya), istifadeci: { id: user.id, ad, soyad, telefon, email } });
   } catch (err) {
     res.status(500).json({ xeta: err.message });
   }
@@ -53,7 +55,10 @@ async function giris(req, res) {
 
     if (!user.aktiv) return res.status(403).json({ xeta: 'Hesabınız bloklanıb' });
 
-    res.json({ token: tokenYarat(user), istifadeci: { id: user.id, ad: user.ad, soyad: user.soyad, telefon, foto: user.foto } });
+    const sessiya = crypto.randomUUID();
+    await user.update({ aktiv_sessiya: sessiya });
+
+    res.json({ token: tokenYarat(user, sessiya), istifadeci: { id: user.id, ad: user.ad, soyad: user.soyad, telefon, foto: user.foto } });
   } catch (err) {
     res.status(500).json({ xeta: err.message });
   }
@@ -125,9 +130,14 @@ async function googleGiris(req, res) {
     const { id_token } = req.body;
     if (!id_token) return res.status(400).json({ xeta: 'Google token göndərilməyib' });
 
-    const admin = require('firebase-admin');
-    const decoded = await admin.auth().verifyIdToken(id_token);
-    const { uid, email, name } = decoded;
+    const { OAuth2Client } = require('google-auth-library');
+    const WEB_CLIENT_ID = '682117254538-5avgsk6jv3mpnsvtuosbctkn2f7sq6ff.apps.googleusercontent.com';
+    const oauth2 = new OAuth2Client(WEB_CLIENT_ID);
+    const ticket = await oauth2.verifyIdToken({ idToken: id_token, audience: WEB_CLIENT_ID });
+    const payload = ticket.getPayload();
+    const uid = payload.sub;
+    const email = payload.email;
+    const name = payload.name;
 
     let user = await User.findOne({ where: { google_id: uid } });
 
@@ -139,6 +149,7 @@ async function googleGiris(req, res) {
     }
 
     if (!user) {
+      const sessiya = crypto.randomUUID();
       const adParts = (name || 'İstifadəçi').split(' ');
       user = await User.create({
         ad: adParts[0] || 'İstifadəçi',
@@ -146,14 +157,24 @@ async function googleGiris(req, res) {
         telefon: `google_${uid}`,
         email,
         google_id: uid,
-        foto: decoded.picture || null,
+        foto: payload.picture || null,
+        aktiv_sessiya: sessiya,
+      });
+
+      return res.json({
+        token: tokenYarat(user, sessiya),
+        istifadeci: { id: user.id, ad: user.ad, soyad: user.soyad, telefon: user.telefon, foto: user.foto, email: user.email },
+        yeni_hesab: true,
       });
     }
 
     if (!user.aktiv) return res.status(403).json({ xeta: 'Hesabınız bloklanıb' });
 
+    const sessiya = crypto.randomUUID();
+    await user.update({ aktiv_sessiya: sessiya });
+
     res.json({
-      token: tokenYarat(user),
+      token: tokenYarat(user, sessiya),
       istifadeci: { id: user.id, ad: user.ad, soyad: user.soyad, telefon: user.telefon, foto: user.foto, email: user.email },
       yeni_hesab: user.telefon?.startsWith('google_'),
     });

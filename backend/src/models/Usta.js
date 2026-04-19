@@ -151,6 +151,10 @@ const Usta = sequelize.define('Usta', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  aktiv_sessiya: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   tableName: 'ustalar',
   timestamps: true,

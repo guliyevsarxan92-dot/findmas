@@ -18,7 +18,15 @@ api.interceptors.request.use(async (config) => {
 
 api.interceptors.response.use(
   (r) => r,
-  (err) => Promise.reject(err.response?.data || { xeta: 'Şəbəkə xətası' })
+  async (err) => {
+    const data = err.response?.data;
+    if (data?.sessiya_bitdi) {
+      await AsyncStorage.multiRemove(['token', 'user']);
+      const { Alert } = require('react-native');
+      Alert.alert('Sessiya bitdi', 'Başqa cihazdan daxil olunub. Yenidən daxil olun.');
+    }
+    return Promise.reject(data || { xeta: 'Şəbəkə xətası' });
+  }
 );
 
 export default api;

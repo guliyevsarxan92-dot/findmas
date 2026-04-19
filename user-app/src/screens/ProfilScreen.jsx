@@ -188,7 +188,7 @@ export default function ProfilScreen() {
 
       {/* REDAKTƏ MODAL */}
       <Modal visible={redakteAcildi} animationType="slide" transparent onRequestClose={() => setRedakteAcildi(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalOverlay}>
+        <KeyboardAvoidingView behavior="padding" style={s.modalOverlay}>
           <View style={s.modalCard}>
             <View style={s.modalHeader}>
               <Text style={s.modalTitle}>Məlumatları redaktə et</Text>
@@ -196,38 +196,40 @@ export default function ProfilScreen() {
                 <Ionicons name="close" size={24} color={C.dark} />
               </TouchableOpacity>
             </View>
-            <Text style={s.modalLabel}>Ad</Text>
-            <TextInput
-              style={s.modalInput}
-              value={redakteForm.ad}
-              onChangeText={v => setRedakteForm(f => ({ ...f, ad: v }))}
-              placeholder="Adınız"
-            />
-            <Text style={s.modalLabel}>Soyad</Text>
-            <TextInput
-              style={s.modalInput}
-              value={redakteForm.soyad}
-              onChangeText={v => setRedakteForm(f => ({ ...f, soyad: v }))}
-              placeholder="Soyadınız"
-            />
-            <Text style={s.modalLabel}>Email</Text>
-            <TextInput
-              style={s.modalInput}
-              value={redakteForm.email}
-              onChangeText={v => setRedakteForm(f => ({ ...f, email: v }))}
-              placeholder="mail@example.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <TouchableOpacity
-              style={[s.modalBtn, redakteYuklenir && { opacity: 0.7 }]}
-              onPress={redakteYadda}
-              disabled={redakteYuklenir}
-            >
-              {redakteYuklenir
-                ? <ActivityIndicator color={C.white} />
-                : <Text style={s.modalBtnText}>Yadda saxla</Text>}
-            </TouchableOpacity>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
+              <Text style={s.modalLabel}>Ad</Text>
+              <TextInput
+                style={s.modalInput}
+                value={redakteForm.ad}
+                onChangeText={v => setRedakteForm(f => ({ ...f, ad: v }))}
+                placeholder="Adınız"
+              />
+              <Text style={s.modalLabel}>Soyad</Text>
+              <TextInput
+                style={s.modalInput}
+                value={redakteForm.soyad}
+                onChangeText={v => setRedakteForm(f => ({ ...f, soyad: v }))}
+                placeholder="Soyadınız"
+              />
+              <Text style={s.modalLabel}>Email</Text>
+              <TextInput
+                style={s.modalInput}
+                value={redakteForm.email}
+                onChangeText={v => setRedakteForm(f => ({ ...f, email: v }))}
+                placeholder="mail@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={[s.modalBtn, redakteYuklenir && { opacity: 0.7 }]}
+                onPress={redakteYadda}
+                disabled={redakteYuklenir}
+              >
+                {redakteYuklenir
+                  ? <ActivityIndicator color={C.white} />
+                  : <Text style={s.modalBtnText}>Yadda saxla</Text>}
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
