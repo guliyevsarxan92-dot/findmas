@@ -25,11 +25,17 @@ async function ustayaGonder(io, sifaris, usta) {
     hazirki_usta_vaxt: new Date(),
   });
 
+  const xidmet = await Xidmet.findOne({ where: { key: sifaris.kateqoriya } });
+
   await yeniSifarisbildiris(usta, sifaris).catch(() => {});
   if (io) {
     io.to(`usta_${usta.id}`).emit('yeni_sifaris', {
       id: sifaris.id,
       kateqoriya: sifaris.kateqoriya,
+      kateqoriya_ad: xidmet?.ad || sifaris.kateqoriya,
+      kateqoriya_ikon: xidmet?.ikon || 'construct-outline',
+      kateqoriya_ikon_lib: xidmet?.ikon_lib || 'Ionicons',
+      kateqoriya_rang: xidmet?.rang || '#6366F1',
       problem_tesvirr: sifaris.problem_tesvirr,
       problem_foto: sifaris.problem_foto,
       unvan_metn: sifaris.unvan_metn,

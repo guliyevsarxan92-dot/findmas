@@ -5,17 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import C from '../utils/colors';
 
-const KAT_IKONLAR = {
-  santexnik: 'water-outline',
-  elektrik: 'flash-outline',
-  qaynaqci: 'flame-outline',
-  duluscu: 'construct-outline',
-  boyaqci: 'color-palette-outline',
-  ustav: 'hammer-outline',
-  kondisioner: 'snow-outline',
-  temizlik: 'sparkles-outline',
-  diger: 'options-outline',
-};
+const FALLBACK_IKON = 'construct-outline';
 
 const DOVRELER = [
   { key: 'gunluk', label: 'Günlük' },
@@ -27,6 +17,7 @@ export default function QazancScreen() {
   const [tarixce, setTarixce] = useState([]);
   const [profil, setProfil] = useState(null);
   const [qazanc, setQazanc] = useState(null);
+  const [xidmetMap, setXidmetMap] = useState({});
   const [yuklenir, setYuklenir] = useState(true);
   const [aktivDovre, setAktivDovre] = useState('heftelik');
 
@@ -37,6 +28,11 @@ export default function QazancScreen() {
         api.get('/usta/profil').then(r => setProfil(r.data)),
         api.get('/sifaris/tarixce').then(r => setTarixce(r.data.sifarisler || [])),
         api.get('/usta/qazanc').then(r => setQazanc(r.data)),
+        api.get('/xidmetler').then(r => {
+          const map = {};
+          (r.data.xidmetler || []).forEach(x => { map[x.key] = x; });
+          setXidmetMap(map);
+        }),
       ]).catch(() => {}).finally(() => setYuklenir(false));
     }, [])
   );
@@ -134,7 +130,8 @@ export default function QazancScreen() {
           </>
         }
         renderItem={({ item }) => {
-          const ikon = KAT_IKONLAR[item.kateqoriya] || 'construct-outline';
+          const xidmet = xidmetMap[item.kateqoriya];
+          const ikon = xidmet?.ikon || FALLBACK_IKON;
           const tarix = new Date(item.yaradildi).toLocaleDateString('az-AZ', { day: '2-digit', month: 'long' });
           const haqqi = parseFloat(item.xidmet_haqqi || item.məbleg || 0);
           const komis = parseFloat(item.komisyon || 0);
@@ -145,7 +142,7 @@ export default function QazancScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.kartKat}>
-                  {item.kateqoriya?.charAt(0).toUpperCase() + item.kateqoriya?.slice(1)}
+                  {xidmet?.ad || (item.kateqoriya?.charAt(0).toUpperCase() + item.kateqoriya?.slice(1))}
                 </Text>
                 <View style={s.kartAlt}>
                   <Ionicons name="calendar-outline" size={12} color={C.textMuted} />

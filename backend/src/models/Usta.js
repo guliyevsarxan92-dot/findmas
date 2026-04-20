@@ -1,19 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-// Usta kateqoriyaları
-const KATEQORIYALAR = [
-  'santexnik',
-  'elektrik',
-  'qaynaqci',
-  'duluscu',     // tikinti / gips
-  'boyaqci',
-  'ustav',       // mebel, taxta işləri
-  'kondisioner',
-  'temizlik',
-  'diger',
-];
-
 const Usta = sequelize.define('Usta', {
   id: {
     type: DataTypes.UUID,
@@ -169,7 +156,5 @@ const Usta = sequelize.define('Usta', {
   createdAt: 'yaradildi',
   updatedAt: 'yenilendi',
 });
-
-Usta.KATEQORIYALAR = KATEQORIYALAR;
 
 module.exports = Usta;

@@ -4,17 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import C from '../utils/colors';
 
-const KAT_IKONLAR = {
-  santexnik: 'water-outline',
-  elektrik: 'flash-outline',
-  qaynaqci: 'flame-outline',
-  duluscu: 'construct-outline',
-  boyaqci: 'color-palette-outline',
-  ustav: 'hammer-outline',
-  kondisioner: 'snow-outline',
-  temizlik: 'sparkles-outline',
-  diger: 'options-outline',
-};
+const FALLBACK_IKON = 'construct-outline';
 
 const STATUS_CFG = {
   tamamlandi: { text: 'Tamamlandı', color: '#16A34A', bg: '#F0FDF4', ikon: 'checkmark-circle' },
@@ -25,11 +15,19 @@ const STATUS_CFG = {
 
 export default function TarixceScreen() {
   const [sifarisler, setSifarisler] = useState([]);
+  const [xidmetMap, setXidmetMap] = useState({});
   const [sehife, setSehife] = useState(1);
   const [daha, setDaha] = useState(true);
   const [yuklenir, setYuklenir] = useState(false);
 
-  useEffect(() => { yukle(1); }, []);
+  useEffect(() => {
+    api.get('/xidmetler').then(r => {
+      const map = {};
+      (r.data.xidmetler || []).forEach(x => { map[x.key] = x; });
+      setXidmetMap(map);
+    }).catch(() => {});
+    yukle(1);
+  }, []);
 
   async function yukle(s) {
     if (yuklenir) return;
@@ -45,7 +43,8 @@ export default function TarixceScreen() {
 
   function renderItem({ item }) {
     const st = STATUS_CFG[item.status] || { text: item.status, color: C.textSoft, bg: C.bg, ikon: 'ellipse-outline' };
-    const ikon = KAT_IKONLAR[item.kateqoriya] || 'construct-outline';
+    const xidmet = xidmetMap[item.kateqoriya];
+    const ikon = xidmet?.ikon || FALLBACK_IKON;
     const tarix = new Date(item.yaradildi).toLocaleDateString('az-AZ', { day: '2-digit', month: 'long', year: 'numeric' });
 
     return (
@@ -56,7 +55,7 @@ export default function TarixceScreen() {
           </View>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.kateqoriya}>{item.kateqoriya?.charAt(0).toUpperCase() + item.kateqoriya?.slice(1)}</Text>
+          <Text style={s.kateqoriya}>{xidmet?.ad || (item.kateqoriya?.charAt(0).toUpperCase() + item.kateqoriya?.slice(1))}</Text>
           {item.unvan_metn ? (
             <View style={s.unvanRow}>
               <Ionicons name="location-outline" size={12} color={C.textSoft} />

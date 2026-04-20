@@ -20,17 +20,8 @@ const BAKU_REGION = {
   longitudeDelta: 0.06,
 };
 
-const KAT_IKONLAR = {
-  santexnik:   'pipe-wrench',
-  elektrik:    'lightning-bolt',
-  qaynaqci:    'fire',
-  duluscu:     'hammer',
-  boyaqci:     'palette',
-  ustav:       'hammer-wrench',
-  kondisioner: 'air-conditioner',
-  temizlik:    'broom',
-  diger:       'toolbox',
-};
+const FALLBACK_IKON = 'construct-outline';
+const FALLBACK_IKON_LIB = 'Ionicons';
 
 // ─── Spinning arc loader ──────────────────────────────────────────────────────
 function SpinArc() {
@@ -92,13 +83,11 @@ export default function YeniSifarisScreen({ route, navigation }) {
     navigation.goBack();
   }
 
-  const katAd   = sifaris.kateqoriya
-    ? sifaris.kateqoriya.charAt(0).toUpperCase() + sifaris.kateqoriya.slice(1)
-    : 'Ümumi';
-  const katSub  = katAd + (sifaris.kateqoriya === 'santexnik' ? ' (Plumber)' :
-                           sifaris.kateqoriya === 'elektrik'  ? ' (Electrician)' :
-                           sifaris.kateqoriya === 'boyaqci'   ? ' (Painter)' : ' xidməti');
-  const katIkon = KAT_IKONLAR[sifaris.kateqoriya] || 'toolbox';
+  const katAd   = sifaris.kateqoriya_ad
+    || (sifaris.kateqoriya ? sifaris.kateqoriya.charAt(0).toUpperCase() + sifaris.kateqoriya.slice(1) : 'Ümumi');
+  const katSub  = katAd + ' xidməti';
+  const katIkon = sifaris.kateqoriya_ikon || FALLBACK_IKON;
+  const katIkonLib = sifaris.kateqoriya_ikon_lib || FALLBACK_IKON_LIB;
   const basSehri = ((usta?.ad?.[0] || '') + (usta?.soyad?.[0] || '')).toUpperCase();
 
   const mapRegion = sifaris.unvan_lat && sifaris.unvan_lng
@@ -142,7 +131,9 @@ export default function YeniSifarisScreen({ route, navigation }) {
             anchor={{ x: 0.5, y: 1 }}
           >
             <View style={s.jobMarker}>
-              <MaterialCommunityIcons name={katIkon} size={14} color={C.white} />
+              {katIkonLib === 'MaterialCommunityIcons'
+                ? <MaterialCommunityIcons name={katIkon} size={14} color={C.white} />
+                : <Ionicons name={katIkon} size={14} color={C.white} />}
             </View>
           </Marker>
         )}
@@ -167,7 +158,9 @@ export default function YeniSifarisScreen({ route, navigation }) {
         <View style={s.spinWrap}>
           <SpinArc />
           <View style={s.spinIcon}>
-            <MaterialCommunityIcons name={katIkon} size={28} color={C.primary} />
+            {katIkonLib === 'MaterialCommunityIcons'
+              ? <MaterialCommunityIcons name={katIkon} size={28} color={C.primary} />
+              : <Ionicons name={katIkon} size={28} color={C.primary} />}
           </View>
         </View>
 
