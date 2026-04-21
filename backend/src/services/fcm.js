@@ -6,7 +6,9 @@ function init() {
   if (initialized) return;
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) return;
 
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  let raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  try { JSON.parse(raw); } catch { raw = Buffer.from(raw, 'base64').toString('utf-8'); }
+  const serviceAccount = JSON.parse(raw);
   admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
   initialized = true;
 }

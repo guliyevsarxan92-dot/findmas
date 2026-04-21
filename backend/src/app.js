@@ -88,13 +88,21 @@ async function miqrasiya() {
     `).catch(() => {});
     await sequelize.query(`DROP TYPE IF EXISTS "enum_ustalar_kateqoriya" CASCADE;`).catch(() => {});
 
+    // problem_foto: VARCHAR(255)[] → TEXT[] (base64 fotolar 255-dən uzundur)
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE sifarisler ALTER COLUMN problem_foto TYPE TEXT[] USING problem_foto::TEXT[];
+      EXCEPTION WHEN others THEN NULL;
+      END $$;
+    `).catch(() => {});
+
     // Mövcud ustaların kateqoriyalar/aktiv_kateqoriyalar sahələrini doldur
     await sequelize.query(`
       UPDATE ustalar
-      SET kateqoriyalar = ARRAY[kateqoriya],
-          aktiv_kateqoriyalar = ARRAY[kateqoriya]
+      SET kateqoriyalar = ARRAY[kateqoriya]::VARCHAR[],
+          aktiv_kateqoriyalar = ARRAY[kateqoriya]::VARCHAR[]
       WHERE kateqoriya IS NOT NULL
-        AND (kateqoriyalar IS NULL OR kateqoriyalar = '{}');
+        AND (kateqoriyalar IS NULL OR array_length(kateqoriyalar, 1) IS NULL);
     `).catch(() => {});
   } catch (err) {
     console.warn('Miqrasiya xəbərdarlığı:', err.message);

@@ -20,18 +20,36 @@
       "package": "az.findmas.usta",
       "googleServicesFile": "./google-services.json",
       "versionCode": 1,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyB5eTJ-sBFmhMjRQYx3Fnt74Igzlwtc2YA"
+        }
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#f97316"
+        "backgroundColor": "#4CAF50"
       },
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -48,8 +66,18 @@
       "@react-native-google-signin/google-signin"
     ],
     "extra": {
-      "apiUrl": "http://192.168.52.196:3000/api",
-      "wsUrl": "http://192.168.52.196:3000"
+      "apiUrl": "https://findmas-backend-production.up.railway.app/api",
+      "wsUrl": "https://findmas-backend-production.up.railway.app",
+      "eas": {
+        "projectId": "75b70638-a18e-4214-940b-d08c017a2d42"
+      }
+    },
+    "owner": "findmas",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/75b70638-a18e-4214-940b-d08c017a2d42"
     }
   }
 }

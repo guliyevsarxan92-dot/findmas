@@ -21,17 +21,30 @@
       "googleServicesFile": "./google-services.json",
       "versionCode": 1,
       "softwareKeyboardLayoutMode": "resize",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyB5eTJ-sBFmhMjRQYx3Fnt74Igzlwtc2YA"
+        }
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#f97316"
+        "backgroundColor": "#4CAF50"
       },
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -41,15 +54,25 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#f97316"
+          "color": "#4CAF50"
         }
       ],
       "expo-font",
       "@react-native-google-signin/google-signin"
     ],
     "extra": {
-      "apiUrl": "http://192.168.52.196:3000/api",
-      "wsUrl": "http://192.168.52.196:3000"
+      "apiUrl": "https://findmas-backend-production.up.railway.app/api",
+      "wsUrl": "https://findmas-backend-production.up.railway.app",
+      "eas": {
+        "projectId": "db202b0f-5467-4428-a81f-25d49f307008"
+      }
+    },
+    "owner": "findmas",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/db202b0f-5467-4428-a81f-25d49f307008"
     }
   }
 }

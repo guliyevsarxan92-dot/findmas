@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "682117254538-a5akm2huh5mice9l31ehd05la081jgnr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "az.findmas.user",
+            "certificate_hash": "a05eb8d12735f0213d8e6c4e268cc92a862511ce"
+          }
+        },
+        {
           "client_id": "682117254538-5avgsk6jv3mpnsvtuosbctkn2f7sq6ff.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -42,6 +50,14 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "682117254538-8k4udtv1t0fu2gel863bgt1hr2m8qt7l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "az.findmas.usta",
+            "certificate_hash": "a05eb8d12735f0213d8e6c4e268cc92a862511ce"
+          }
+        },
         {
           "client_id": "682117254538-5avgsk6jv3mpnsvtuosbctkn2f7sq6ff.apps.googleusercontent.com",
           "client_type": 3
