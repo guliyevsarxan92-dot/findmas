@@ -109,7 +109,7 @@ async function miqrasiya() {
   }
 }
 
-const syncOptions = process.env.NODE_ENV === 'development' ? { alter: true } : {};
+const syncOptions = { alter: true };
 miqrasiya().then(() => sequelize.sync(syncOptions)).then(() => {
   console.log('Verilənlər bazası hazır');
   fcm.init();
