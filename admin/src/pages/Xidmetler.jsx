@@ -3,6 +3,18 @@ import api from '../api'
 
 const BOSH_FORM = { key: '', ad: '', altbaslik: '', ikon: 'construct', ikon_lib: 'Ionicons', rang: '#3b82f6', qiymet: '', sira: 0, aktiv: true, alt_xidmetler: [] }
 
+// Azərbaycan hərflərini ASCII-ə çevirən slugify
+function slugify(s) {
+  if (!s) return ''
+  const map = { 'ə':'e','Ə':'e','ş':'s','Ş':'s','ç':'c','Ç':'c','ğ':'g','Ğ':'g',
+                'ı':'i','İ':'i','I':'i','ü':'u','Ü':'u','ö':'o','Ö':'o' }
+  return String(s).split('').map(ch => map[ch] ?? ch).join('')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+}
+
 export default function Xidmetler() {
   const [siyahi, setSiyahi] = useState([])
   const [yuklenir, setYuklenir] = useState(true)
@@ -58,8 +70,15 @@ export default function Xidmetler() {
   }
 
   async function gondər() {
-    if (!form.ad.trim() || !form.key.trim()) {
-      setXeta('Ad və key mütləqdir')
+    if (!form.ad.trim()) {
+      setXeta('Ad mütləqdir')
+      setTimeout(() => setXeta(''), 3000)
+      return
+    }
+    // Key yoxdursa, ad-dan yarat
+    const finalKey = form.key.trim() ? slugify(form.key) : slugify(form.ad)
+    if (!finalKey) {
+      setXeta('Düzgün key yaradıla bilmədi')
       setTimeout(() => setXeta(''), 3000)
       return
     }
@@ -68,6 +87,7 @@ export default function Xidmetler() {
       const altList = form.alt_xidmetler.filter(a => a.ad.trim())
       const payload = {
         ...form,
+        key: finalKey,
         qiymet: form.qiymet === '' ? 0 : Number(form.qiymet),
         sira: Number(form.sira),
         alt_xidmetler: altList.length > 0 ? altList.map(a => ({ ad: a.ad.trim(), qiymet: Number(a.qiymet) || 0 })) : null,
@@ -226,11 +246,20 @@ export default function Xidmetler() {
 
             <div className="form-group">
               <label>Ad *</label>
-              <input value={form.ad} onChange={e => inp('ad', e.target.value)} placeholder="Santexnik" />
+              <input value={form.ad} onChange={e => {
+                const ad = e.target.value
+                setForm(f => ({
+                  ...f,
+                  ad,
+                  // Yeni xidmət üçün avtomatik key yarat (redaktə zamanı toxunma)
+                  key: !redaktə && (!f.key || f.key === slugify(f.ad)) ? slugify(ad) : f.key
+                }))
+              }} placeholder="Santexnik" />
             </div>
             <div className="form-group">
               <label>Key (unikal, ingilis) *</label>
-              <input value={form.key} onChange={e => inp('key', e.target.value.toLowerCase().replace(/\s/g, '_'))} placeholder="santexnik" />
+              <input value={form.key} onChange={e => inp('key', slugify(e.target.value))} placeholder="santexnik" />
+              <small style={{ color: '#94a3b8', fontSize: 11 }}>Yalnız kiçik ingilis hərfləri, rəqəm və _ icazəlidir</small>
             </div>
             <div className="form-group">
               <label>Alt başlıq</label>

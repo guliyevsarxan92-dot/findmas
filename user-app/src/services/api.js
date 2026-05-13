@@ -2,8 +2,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.52.196:3000/api';
-export const WS_URL = Constants.expoConfig?.extra?.wsUrl || 'http://192.168.52.196:3000';
+const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'https://findmas-backend-production.up.railway.app/api';
+export const WS_URL = Constants.expoConfig?.extra?.wsUrl ?? 'https://findmas-backend-production.up.railway.app';
 
 const api = axios.create({
   baseURL: API_URL,

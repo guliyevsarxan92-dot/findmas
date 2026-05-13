@@ -1,7 +1,19 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { Usta } = require('../models');
+const { Usta, Xidmet } = require('../models');
+
+// Verilmiş key array-i DB-də mövcud və aktiv olduğunu yoxlayır
+async function kateqoriyalariYoxla(katArr) {
+  if (!katArr || katArr.length === 0) return { ok: false, xeta: 'Ən az 1 xidmət seçin' };
+  const movcud = await Xidmet.findAll({ where: { key: katArr, aktiv: true }, attributes: ['key'] });
+  const movcudKeys = movcud.map(x => x.key);
+  const itken = katArr.filter(k => !movcudKeys.includes(k));
+  if (itken.length > 0) {
+    return { ok: false, xeta: `Bu xidmət(lər) mövcud deyil: ${itken.join(', ')}` };
+  }
+  return { ok: true };
+}
 
 function tokenYarat(usta, sessiya) {
   return jwt.sign(
@@ -21,8 +33,13 @@ async function qeydiyyat(req, res) {
       return res.status(400).json({ xeta: 'Ən az 1, ən çox 2 xidmət seçin' });
     }
 
+    // Seçilən xidmət(lər) DB-də mövcud və aktivdir?
+    const yoxla = await kateqoriyalariYoxla(katArr);
+    if (!yoxla.ok) return res.status(400).json({ xeta: yoxla.xeta });
+
     const var_olan = await Usta.findOne({ where: { telefon } });
     if (var_olan) return res.status(400).json({ xeta: 'Bu telefon artıq qeydiyyatdadır' });
+    
 
     const sifre_hash = await bcrypt.hash(sifre, 12);
     const sessiya = crypto.randomUUID();
@@ -170,6 +187,10 @@ async function profilYenile(req, res) {
     if (kateqoriyalar !== undefined) {
       const katArr = Array.isArray(kateqoriyalar) ? kateqoriyalar : [];
       if (katArr.length > 2) return res.status(400).json({ xeta: 'Ən çox 2 xidmət seçə bilərsiniz' });
+      if (katArr.length > 0) {
+        const yoxla = await kateqoriyalariYoxla(katArr);
+        if (!yoxla.ok) return res.status(400).json({ xeta: yoxla.xeta });
+      }
       update.kateqoriyalar = katArr;
       update.kateqoriya = katArr[0] || null;
       if (!aktiv_kateqoriyalar) {

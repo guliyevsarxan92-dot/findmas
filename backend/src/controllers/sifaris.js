@@ -126,6 +126,13 @@ async function yeniSifaris(req, res) {
   try {
     const { kateqoriya, problem_tesvirr, unvan_metn, unvan_lat, unvan_lng, problem_foto, alt_secim } = req.body;
 
+    // Kateqoriya yoxlanışı — DB-də mövcud olmalı və aktiv olmalı
+    if (!kateqoriya) return res.status(400).json({ xeta: 'Xidmət seçilməyib' });
+    const xidmetMovcud = await Xidmet.findOne({ where: { key: kateqoriya, aktiv: true } });
+    if (!xidmetMovcud) {
+      return res.status(400).json({ xeta: 'Seçilmiş xidmət mövcud deyil və ya deaktiv edilib' });
+    }
+
     // Aktiv sifarişi varmı?
     const aktiv = await Sifaris.findOne({
       where: {
